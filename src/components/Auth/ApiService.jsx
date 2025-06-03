@@ -1,41 +1,9 @@
 // services/api.js
-import emailjs from '@emailjs/browser';
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-
-// EmailJS configuration
-const EMAILJS_CONFIG = {
-  PUBLIC_KEY: import.meta.env.VITE_EMAILJS_PUBLIC_KEY,
-  SERVICE_ID: import.meta.env.VITE_EMAILJS_SERVICE_ID,
-  TEMPLATE_ID: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-};
 
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
-    this.emailJSInitialized = false;
-    
-    // Initialize EmailJS with validation
-    this.initializeEmailJS();
-  }
-
-  initializeEmailJS() {
-    try {
-      if (!EMAILJS_CONFIG.PUBLIC_KEY || !EMAILJS_CONFIG.SERVICE_ID || !EMAILJS_CONFIG.TEMPLATE_ID) {
-        console.warn('EmailJS configuration incomplete. Please check your environment variables:');
-        console.warn('VITE_EMAILJS_PUBLIC_KEY');
-        console.warn('VITE_EMAILJS_SERVICE_ID'); 
-        console.warn('VITE_EMAILJS_TEMPLATE_ID');
-        return;
-      }
-
-      emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
-      this.emailJSInitialized = true;
-      console.log('EmailJS initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize EmailJS:', error);
-      this.emailJSInitialized = false;
-    }
   }
 
   async makeRequest(endpoint, options = {}) {
@@ -69,112 +37,87 @@ class ApiService {
     }
   }
 
-  // Generate 6-digit reset code
-  generateResetCode() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
+  // EMAIL CHECK METHODS
 
-  // Store reset code temporarily (in-memory storage for demo)
-  storeResetCode(email, code) {
-    const resetData = {
-      email,
-      code,
-      timestamp: Date.now(),
-      expiresAt: Date.now() + (20 * 60 * 1000), // 20 minutes
-      attempts: 0 // Track verification attempts
-    };
-    
-    // Store in sessionStorage with error handling
+  // Primary method: Check if email exists using dedicated endpoint (GET)
+  // async checkEmailExists(email) {
+  //   try {
+  //     if (!email || !/\S+@\S+\.\S+/.test(email)) {
+  //       throw new Error('Please provide a valid email address');
+  //     }
+
+  //     const response = await this.makeRequest(`/auth/check-email/${encodeURIComponent(email)}`, {
+  //       method: 'GET',
+  //     });
+      
+  //     return response;
+  //   } catch (error) {
+  //     console.error('Email check failed:', error);
+      
+  //     if (error.message.includes('404') || error.message.includes('not found')) {
+  //       throw new Error('Email does not exist');
+  //     } else if (error.message.includes('400')) {
+  //       throw new Error('Invalid email format');
+  //     }
+      
+  //     throw error;
+  //   }
+  // }
+
+  // Alternative method: Use POST request with email in body
+  async checkEmailExistsPost(email) {
     try {
-      if (typeof window !== 'undefined' && window.sessionStorage) {
-        const resetCodes = JSON.parse(sessionStorage.getItem('resetCodes') || '{}');
-        resetCodes[email] = resetData;
-        sessionStorage.setItem('resetCodes', JSON.stringify(resetCodes));
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        throw new Error('Please provide a valid email address');
       }
+
+      const response = await this.makeRequest('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email: email }),
+      });
+      
+      return response;
     } catch (error) {
-      console.error('Failed to store reset code:', error);
-      // Fallback to memory storage could be implemented here
-    }
-    
-    return resetData;
-  }
-
-  // Verify reset code with attempt limiting
-  verifyResetCode(email, code) {
-    try {
-      if (typeof window === 'undefined' || !window.sessionStorage) return false;
+      console.error('Email check failed:', error);
       
-      const resetCodes = JSON.parse(sessionStorage.getItem('resetCodes') || '{}');
-      const resetData = resetCodes[email];
+      if (error.message.includes('404') || error.message.includes('not found')) {
+        throw new Error('Email does not exist');
+      } else if (error.message.includes('400')) {
+        throw new Error('Invalid email format');
+      }
       
-      if (!resetData) {
-        return { valid: false, error: 'No reset code found for this email' };
-      }
-
-      // Check if too many attempts
-      if (resetData.attempts >= 5) {
-        return { valid: false, error: 'Too many verification attempts. Please request a new code.' };
-      }
-
-      // Check if expired
-      if (Date.now() >= resetData.expiresAt) {
-        this.clearResetCode(email); // Clean up expired code
-        return { valid: false, error: 'Reset code has expired. Please request a new code.' };
-      }
-
-      // Increment attempts
-      resetData.attempts = (resetData.attempts || 0) + 1;
-      resetCodes[email] = resetData;
-      sessionStorage.setItem('resetCodes', JSON.stringify(resetCodes));
-
-      // Check if code matches
-      const isValid = resetData.code === code;
-      
-      if (!isValid) {
-        return { 
-          valid: false, 
-          error: `Invalid code. ${5 - resetData.attempts} attempts remaining.`,
-          attemptsRemaining: 5 - resetData.attempts
-        };
-      }
-
-      return { valid: true };
-      
-    } catch (error) {
-      console.error('Error verifying reset code:', error);
-      return { valid: false, error: 'Error verifying code' };
+      throw error;
     }
   }
 
-  // Clear reset code after use
-  clearResetCode(email) {
+  // Smart email check method that tries multiple approaches
+  async checkEmailExistsSmart(email) {
     try {
-      if (typeof window === 'undefined' || !window.sessionStorage) return;
-      
-      const resetCodes = JSON.parse(sessionStorage.getItem('resetCodes') || '{}');
-      delete resetCodes[email];
-      sessionStorage.setItem('resetCodes', JSON.stringify(resetCodes));
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        throw new Error('Please provide a valid email address');
+      }
+
+      // Try the primary method first (GET endpoint)
+      try {
+        return await this.checkEmailExists(email);
+      } catch (error) {
+        console.log('Primary email check failed, trying POST method...');
+        
+        // If GET fails, try POST method
+        try {
+          return await this.checkEmailExistsPost(email);
+        } catch (postError) {
+          console.log('POST email check failed');
+          throw postError;
+        }
+      }
     } catch (error) {
-      console.error('Failed to clear reset code:', error);
+      console.error('All email check methods failed:', error);
+      throw error;
     }
   }
 
-  // Check if reset code exists and is valid
-  hasValidResetCode(email) {
-    try {
-      if (typeof window === 'undefined' || !window.sessionStorage) return false;
-      
-      const resetCodes = JSON.parse(sessionStorage.getItem('resetCodes') || '{}');
-      const resetData = resetCodes[email];
-      
-      return resetData && Date.now() < resetData.expiresAt && (resetData.attempts || 0) < 5;
-    } catch (error) {
-      console.error('Error checking reset code:', error);
-      return false;
-    }
-  }
-
-  // Auth endpoints
+  // AUTH ENDPOINTS
   async register(userData) {
     return this.makeRequest('/auth/register', {
       method: 'POST',
@@ -205,7 +148,62 @@ class ApiService {
     });
   }
 
-  // Frontend-only password reset using EmailJS
+  // USER PROFILE MANAGEMENT
+  async getCurrentUser() {
+    try {
+      console.log('Making request to /auth/me...');
+      const response = await this.makeRequest('/auth/me');
+      console.log('getCurrentUser response:', response);
+      return response;
+    } catch (error) {
+      console.error('Failed to get current user:', error);
+      throw error;
+    }
+  }
+
+  async updateUserProfile(profileData) {
+    try {
+      const response = await this.makeRequest('/users/profile', {
+        method: 'PUT',
+        body: JSON.stringify(profileData),
+      });
+      return response;
+    } catch (error) {
+      console.error('Failed to update user profile:', error);
+      throw error;
+    }
+  }
+
+  async logout() {
+    try {
+      // Call backend logout endpoint if it exists
+      await this.makeRequest('/auth/logout', {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('Backend logout failed:', error);
+      // Continue with local cleanup even if backend logout fails
+    } finally {
+      // Clear local storage regardless
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
+    }
+  }
+
+  // Check if user is authenticated
+  isAuthenticated() {
+    const token = localStorage.getItem('authToken');
+    return token && !token.startsWith('mock-');
+  }
+
+  // Get stored auth token
+  getAuthToken() {
+    return localStorage.getItem('authToken');
+  }
+
+  // PASSWORD RESET METHODS (Backend-managed)
+
+  // Request password reset code from backend
   async sendPasswordResetCode(email) {
     try {
       // Validate email format
@@ -213,68 +211,36 @@ class ApiService {
         throw new Error('Please provide a valid email address');
       }
 
-      // Check if EmailJS is properly initialized
-      if (!this.emailJSInitialized) {
-        throw new Error('Email service is not properly configured. Please contact support.');
-      }
-
-      // Check if there's already a valid reset code (prevent spam)
-      if (this.hasValidResetCode(email)) {
-        return {
-          message: 'A reset code was already sent to your email. Please check your inbox or wait before requesting a new code.',
-          status: 'info'
-        };
-      }
-
-      // Generate reset code
-      const code = this.generateResetCode();
-      
-      // Store code temporarily
-      this.storeResetCode(email, code);
-      
-      // Prepare email parameters
-      const emailParams = {
-        to_email: email,
-        reset_code: code,
-        to_name: email.split('@')[0], // Use email prefix as name
-        expires_in: '20 minutes',
-        app_name: 'GIDE'
-      };
-      
-      // Send email using EmailJS
-      const result = await emailjs.send(
-        EMAILJS_CONFIG.SERVICE_ID,
-        EMAILJS_CONFIG.TEMPLATE_ID,
-        emailParams,
-        EMAILJS_CONFIG.PUBLIC_KEY // Include public key in send call as well
-      );
-      
-      console.log('Password reset email sent:', result);
+      // Send request to backend to generate and send reset code
+      const response = await this.makeRequest('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: email,
+        }),
+      });
       
       return {
-        message: 'Reset code sent to your email successfully',
+        message: response.message || 'Reset code sent to your email successfully',
         status: 'success'
       };
       
     } catch (error) {
       console.error('Failed to send reset email:', error);
       
-      // Provide more specific error messages
-      if (error.message.includes('Invalid \'to\' email')) {
+      // Handle specific backend error messages
+      if (error.message.includes('not found') || error.message.includes('does not exist')) {
+        throw new Error('Email address not found in our system');
+      } else if (error.message.includes('rate limit') || error.message.includes('too many')) {
+        throw new Error('Too many reset requests. Please wait before requesting again.');
+      } else if (error.message.includes('invalid email')) {
         throw new Error('Invalid email address provided');
-      } else if (error.message.includes('The service ID is required')) {
-        throw new Error('Email service configuration error. Please contact support.');
-      } else if (error.message.includes('The template ID is required')) {
-        throw new Error('Email template configuration error. Please contact support.');
-      } else if (error.message.includes('The public key is required')) {
-        throw new Error('Email service authentication error. Please contact support.');
       }
       
       throw new Error(error.message || 'Failed to send reset email. Please try again.');
     }
   }
 
-  // Verify reset code (frontend-only)
+  // Verify reset code with backend
   async verifyPasswordResetCode(email, code) {
     try {
       if (!email || !code) {
@@ -285,24 +251,37 @@ class ApiService {
         throw new Error('Please enter a valid 6-digit code');
       }
 
-      const verification = this.verifyResetCode(email, code);
-      
-      if (!verification.valid) {
-        throw new Error(verification.error || 'Invalid verification code');
-      }
+      const response = await this.makeRequest('/auth/verify-reset-code', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: email,
+          code: code,
+        }),
+      });
       
       return {
-        message: 'Code verified successfully',
-        status: 'success'
+        message: response.message || 'Code verified successfully',
+        status: 'success',
+        ...response
       };
       
     } catch (error) {
       console.error('Code verification failed:', error);
+      
+      // Handle specific backend error messages
+      if (error.message.includes('invalid') || error.message.includes('incorrect')) {
+        throw new Error('Invalid verification code');
+      } else if (error.message.includes('expired')) {
+        throw new Error('Verification code has expired. Please request a new one.');
+      } else if (error.message.includes('attempts') || error.message.includes('limit')) {
+        throw new Error('Too many verification attempts. Please request a new code.');
+      }
+      
       throw error;
     }
   }
 
-  // Reset password (you'll still need backend for this)
+  // Reset password using backend verification
   async resetPassword(email, code, newPassword) {
     try {
       if (!email || !code || !newPassword) {
@@ -313,14 +292,7 @@ class ApiService {
         throw new Error('Password must be at least 8 characters long');
       }
 
-      // First verify the code
-      await this.verifyPasswordResetCode(email, code);
-      
-      // Clear the reset code immediately to prevent reuse
-      this.clearResetCode(email);
-      
-      // Call your backend to actually update the password
-      return this.makeRequest('/auth/reset-password', {
+      const response = await this.makeRequest('/auth/register', {
         method: 'POST',
         body: JSON.stringify({
           email: email,
@@ -329,63 +301,31 @@ class ApiService {
         }),
       });
       
-    } catch (error) {
-      console.error('Password reset failed:', error);
-      throw error;
-    }
-  }
-
-  // Alternative method for when backend doesn't exist yet
-  async updatePasswordLocal(email, code, newPassword) {
-    try {
-      // Verify the code first
-      await this.verifyPasswordResetCode(email, code);
-      
-      // Clear the reset code
-      this.clearResetCode(email);
-      
-      // For now, just return success (you'd implement actual password update logic)
-      console.log('Password would be updated for:', email);
-      
       return {
-        message: 'Password updated successfully',
-        status: 'success'
+        message: response.message || 'Password updated successfully',
+        status: 'success',
+        ...response
       };
       
     } catch (error) {
-      console.error('Local password update failed:', error);
+      console.error('Password reset failed:', error);
+      
+      // Handle specific backend error messages
+      if (error.message.includes('invalid') || error.message.includes('incorrect')) {
+        throw new Error('Invalid verification code');
+      } else if (error.message.includes('expired')) {
+        throw new Error('Verification code has expired. Please start the reset process again.');
+      } else if (error.message.includes('password')) {
+        throw new Error('Password must be at least 8 characters long and meet security requirements');
+      }
+      
       throw error;
     }
   }
 
-  // User profile endpoints
+  // USER PROFILE ENDPOINTS
   async getUserProfile() {
     return this.makeRequest('/users/profile');
-  }
-
-  async updateUserProfile(userData) {
-    return this.makeRequest('/users/profile', {
-      method: 'PUT',
-      body: JSON.stringify(userData),
-    });
-  }
-
-  // Utility method to get remaining time for reset code
-  getResetCodeTimeRemaining(email) {
-    try {
-      if (typeof window === 'undefined' || !window.sessionStorage) return 0;
-      
-      const resetCodes = JSON.parse(sessionStorage.getItem('resetCodes') || '{}');
-      const resetData = resetCodes[email];
-      
-      if (!resetData) return 0;
-      
-      const timeRemaining = Math.max(0, resetData.expiresAt - Date.now());
-      return Math.floor(timeRemaining / 1000); // Return seconds
-    } catch (error) {
-      console.error('Error getting reset code time:', error);
-      return 0;
-    }
   }
 }
 

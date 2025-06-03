@@ -20,6 +20,7 @@ const LoginForm = ({ onSubmit }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [isForgotPasswordLoading, setIsForgotPasswordLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -42,16 +43,24 @@ const LoginForm = ({ onSubmit }) => {
     setShowPassword(!showPassword);
   };
 
+  const validateEmail = (email) => {
+    if (!email.trim()) {
+      return "Please input existing email for verification";
+    }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      return "Please enter a valid email address";
+    }
+    return "";
+  };
+
   const validateForm = () => {
     let valid = true;
     const newErrors = { email: "", password: "", general: "" };
     
     // Email validation
-    if (!formData.email.trim()) {
-      newErrors.email = "Email address is required";
-      valid = false;
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
+    const emailError = validateEmail(formData.email);
+    if (emailError) {
+      newErrors.email = emailError;
       valid = false;
     }
     
@@ -105,7 +114,7 @@ const LoginForm = ({ onSubmit }) => {
       }
       
       // In a real app, you would navigate to dashboard here
-      alert('Login successful! Redirecting to dashboard...');
+      // alert('Login successful! Redirecting to dashboard...');
       
     } catch (error) {
       console.error("Login error:", error);
@@ -132,9 +141,47 @@ const LoginForm = ({ onSubmit }) => {
     }
   };
 
-  const handleForgotPasswordClick = (e) => {
+  const handleForgotPasswordClick = async (e) => {
     e.preventDefault();
-    setShowForgotPassword(true);
+    
+    // Validate email first
+    const emailError = validateEmail(formData.email);
+    if (emailError) {
+      setErrors({
+        ...errors,
+        email: emailError
+      });
+      return; // Don't proceed if email is invalid or empty
+    }
+
+    // Check if email exists in database
+    setIsForgotPasswordLoading(true);
+    try {
+      // Call API to check if email exists
+      await ApiService.checkEmailExistsPost(formData.email);
+      
+      // If we reach here, email exists, proceed to forgot password flow
+      setShowForgotPassword(true);
+      setErrors({ email: "", password: "", general: "" }); // Clear any existing errors
+      
+    } catch (error) {
+      console.error("Email check failed:", error);
+      
+      // Handle different error cases
+      if (error.message.includes('not found') || error.message.includes('does not exist')) {
+        setErrors({
+          ...errors,
+          email: "This account does not exist"
+        });
+      } else {
+        setErrors({
+          ...errors,
+          general: "Unable to verify email. Please try again later."
+        });
+      }
+    } finally {
+      setIsForgotPasswordLoading(false);
+    }
   };
 
   const handleForgotPasswordBack = () => {
@@ -243,13 +290,21 @@ const LoginForm = ({ onSubmit }) => {
         </div>
 
         <div className="text-sm">
-          <a 
-            href="#forgot-password" 
+          <button
+            type="button"
             onClick={handleForgotPasswordClick}
-            className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+            disabled={isForgotPasswordLoading}
+            className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            Forgot your password?
-          </a>
+            {isForgotPasswordLoading ? (
+              <>
+                <LoadingSpinner size="small" color="blue" />
+                <span className="ml-2">Verifying...</span>
+              </>
+            ) : (
+              "Forgot your password?"
+            )}
+          </button>
         </div>
       </div>
 
