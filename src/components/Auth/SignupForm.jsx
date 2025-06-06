@@ -190,38 +190,46 @@ const SignupForm = ({ onSubmit }) => {
     setErrors({ fullName: "", email: "", password: "", confirmPassword: "", agreeTerms: "", general: "" });
     
     try {
-      // Use ApiService for registration
-      const data = await ApiService.register({
+      // Step 1: Register the user
+      const registrationData = await ApiService.register({
         fullName: formData.fullName,
         email: formData.email,
         password: formData.password
       });
       
-      // Store the auth token
-      if (data.access_token) {
-        localStorage.setItem('authToken', data.access_token);
-        console.log('Auth token stored:', data.access_token);
+      console.log("Registration successful:");
+      
+      // Step 2: Automatically log in the user after successful registration
+      const loginData = await ApiService.login({
+        email: formData.email,
+        password: formData.password
+      });
+      
+      console.log("Auto-login successful:");
+      
+      // Step 3: Store the auth token
+      if (loginData.access_token) {
+        localStorage.setItem('authToken', loginData.access_token);
+        console.log('Auth token stored after signup:', loginData.access_token);
       }
       
-      // Store user data if available
-      if (data.user) {
-        console.log('User data:', data.user);
-        localStorage.setItem('userData', JSON.stringify(data.user));
-      }
-      
-      console.log("Registration successful:", data);
-      
-      // Call the onSubmit prop function if provided
+      // Step 4: Call the onSubmit prop function if provided
       if (onSubmit) {
-        onSubmit({ ...formData, authToken: data.access_token, user: data.user });
+        onSubmit({
+          fullName: formData.fullName,
+          email: formData.email,
+          registrationData: registrationData,
+          loginData: loginData,
+          authToken: loginData.access_token
+        });
       }
       
-      // Navigate to dashboard or show success message
-      alert('Account created successfully! Redirecting to dashboard...');
+      // Step 5: Redirect to dashboard instead of login
+      console.log('Redirecting to dashboard after successful signup and login');
       navigate('/dashboard');
       
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("Signup process error:", error);
       
       // Handle specific error cases
       if (error.message.includes('Email already exists') || error.message.includes('Email already registered')) {
@@ -244,6 +252,14 @@ const SignupForm = ({ onSubmit }) => {
           ...errors,
           fullName: "Please enter a valid full name."
         });
+      } else if (error.message.includes('Invalid credentials')) {
+        // This might happen during auto-login
+        setErrors({
+          ...errors,
+          general: "Account created but auto-login failed. Please try logging in manually."
+        });
+        // Still redirect to login in this case
+        setTimeout(() => navigate('/login'), 2000);
       } else {
         setErrors({
           ...errors,

@@ -37,17 +37,17 @@ const Navbar = ({ toggleSidebar }) => {
         if (ApiService.isAuthenticated()) {
           console.log('Fetching user data from backend...');
           const user = await ApiService.getCurrentUser();
-          console.log('Received user data:', user);
+          console.log('Received user data');
           
           setUserData({
-            fullName: user.full_name || user.name || user.fullName || '',
+            // Fix: Check for username as well since fullname and username are the same
+            fullName: user.username || user.full_name || user.name || user.fullName || '',
             email: user.email || '',
-            avatar: user.avatar || user.picture || user.profile_picture || null,
-            id: user.id || user.sub || user.user_id || null,
+            // Remove avatar and id from being set - only keep what's needed for display
           });
         } else {
           console.log('User not authenticated, redirecting to login');
-          navigate('/login');
+          navigate('/dashboard');
         }
       } catch (error) {
         console.error('Failed to fetch user data:', error);
@@ -57,7 +57,7 @@ const Navbar = ({ toggleSidebar }) => {
         if (error.message.includes('401') || error.message.includes('unauthorized') || error.message.includes('Unauthorized')) {
           console.log('Token invalid, clearing and redirecting to login');
           localStorage.removeItem('authToken');
-          navigate('/login');
+          navigate('/dashboard');
         }
       } finally {
         setLoading(false);
@@ -175,30 +175,9 @@ const Navbar = ({ toggleSidebar }) => {
                 className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 overflow-hidden"
                 aria-label="User menu"
               >
-                {userData.avatar ? (
-                  <img 
-                    src={userData.avatar} 
-                    alt="User avatar" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                ) : (
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {getUserInitials()}
-                  </span>
-                )}
-                {/* Fallback for broken images */}
-                {userData.avatar && (
-                  <span 
-                    className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden"
-                    style={{ display: 'none' }}
-                  >
-                    {getUserInitials()}
-                  </span>
-                )}
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {getUserInitials()}
+                </span>
               </button>
 
               {/* User dropdown menu with animation */}
@@ -211,12 +190,6 @@ const Navbar = ({ toggleSidebar }) => {
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {userData?.email || "Loading..."}
                     </p>
-                    {/* Debug info - remove in production */}
-                    {process.env.NODE_ENV === 'development' && (
-                      <p className="text-xs text-red-500 mt-1">
-                        Debug: {JSON.stringify(userData)}
-                      </p>
-                    )}
                   </div>
                   <button 
                     onClick={navigateToProfile}

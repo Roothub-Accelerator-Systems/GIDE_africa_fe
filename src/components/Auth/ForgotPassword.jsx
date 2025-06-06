@@ -8,12 +8,12 @@ import ApiService from "../Auth/ApiService";
 const ForgotPassword = ({ email, onBack, onSuccess }) => {
   const [emailSent, setEmailSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes in seconds
   const [code, setCode] = useState(["", "", "", "", "", ""]);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState("");
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [isCodeValid, setIsCodeValid] = useState(false);
+  const [isCodeVerified, setIsCodeVerified] = useState(false);
   
   const inputRefs = useRef([]);
 
@@ -45,12 +45,13 @@ const ForgotPassword = ({ email, onBack, onSuccess }) => {
     setError("");
 
     try {
-      // Call backend API to send reset email
+      // Call backend API to send reset email using /forgot endpoint
       const response = await ApiService.sendPasswordResetCode(email);
       
       console.log('Password reset code sent:', response);
       setEmailSent(true);
       setTimeLeft(1200); // Reset timer to 20 minutes
+      setIsCodeVerified(false); // Reset verification status
       
       // Show success message if provided by backend
       if (response.message) {
@@ -79,6 +80,7 @@ const ForgotPassword = ({ email, onBack, onSuccess }) => {
     newCode[index] = value;
     setCode(newCode);
     setError("");
+    setIsCodeVerified(false); // Reset verification when code changes
 
     // Auto-focus next input
     if (value && index < 5) {
@@ -93,6 +95,22 @@ const ForgotPassword = ({ email, onBack, onSuccess }) => {
     }
   };
 
+  // Handle paste functionality
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text/plain').replace(/\D/g, ''); // Remove non-digits
+    
+    if (pastedData.length === 6) {
+      const newCode = pastedData.split('');
+      setCode(newCode);
+      setError("");
+      setIsCodeVerified(false);
+      
+      // Focus the last input after pasting
+      inputRefs.current[5]?.focus();
+    }
+  };
+
   const handleCodeSubmit = async (e) => {
     e.preventDefault();
     const fullCode = code.join('');
@@ -102,33 +120,40 @@ const ForgotPassword = ({ email, onBack, onSuccess }) => {
       return;
     }
 
-    setIsVerifying(true);
+    if (timeLeft <= 0) {
+      setError("Code has expired. Please request a new code.");
+      return;
+    }
+
+    setIsVerifyingCode(true);
     setError("");
 
     try {
-      // Call backend API to verify the code
-      const response = await ApiService.verifyPasswordResetCode(email, fullCode);
+      // Call the separate verify-code endpoint
+      await ApiService.verifyResetCode(email, fullCode);
       
-      console.log('Code verification successful:', response);
-      setIsCodeValid(true);
+      // If verification successful, set state and move to password change
+      setIsCodeVerified(true);
       setShowChangePassword(true);
       
-      // Show success message if provided by backend
-      if (response.message) {
-        console.log(response.message);
-      }
     } catch (error) {
-      console.error('Code verification error:', error);
+      console.error('Code verification failed:', error);
       setError(error.message || 'Invalid verification code. Please try again.');
-      setIsCodeValid(false);
+      setIsCodeVerified(false);
+      
+      // Clear the code inputs on failed verification
+      setCode(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
+      
     } finally {
-      setIsVerifying(false);
+      setIsVerifyingCode(false);
     }
   };
 
   const handleChangePasswordBack = () => {
     setShowChangePassword(false);
-    setIsCodeValid(false);
+    setIsCodeVerified(false);
+    // Keep the code but allow re-verification if needed
   };
 
   const handleChangePasswordSuccess = (data) => {
@@ -142,8 +167,8 @@ const ForgotPassword = ({ email, onBack, onSuccess }) => {
     window.open('https://mail.google.com', '_blank');
   };
 
-  // Show ChangePassword component if verification was successful
-  if (showChangePassword && isCodeValid) {
+  // Show ChangePassword component only if code is verified
+  if (showChangePassword && isCodeVerified) {
     return (
       <ChangePassword
         email={email}
@@ -222,9 +247,9 @@ const ForgotPassword = ({ email, onBack, onSuccess }) => {
       <form onSubmit={handleCodeSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Enter 6-digit verification code
+            Enter 6-digit verification code 
           </label>
-          <div className="flex space-x-3 justify-center">
+          <div className="flex space-x-3 justify-center" onPaste={handlePaste}>
             {code.map((digit, index) => (
               <div key={index} className="relative">
                 <input
@@ -234,7 +259,10 @@ const ForgotPassword = ({ email, onBack, onSuccess }) => {
                   value={digit}
                   onChange={(e) => handleCodeChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
-                  className="w-12 h-12 text-center text-lg font-medium bg-transparent border-0 border-b-2 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none dark:text-white"
+                  disabled={isVerifyingCode}
+                  className={`w-12 h-12 text-center text-lg font-medium bg-transparent border-0 border-b-2 ${
+                    error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                  } focus:border-blue-500 focus:outline-none dark:text-white disabled:opacity-50`}
                 />
               </div>
             ))}
@@ -243,6 +271,13 @@ const ForgotPassword = ({ email, onBack, onSuccess }) => {
 
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400 text-center">{error}</p>
+        )}
+
+        {/* Success message for verified code */}
+        {isCodeVerified && (
+          <p className="text-sm text-green-600 dark:text-green-400 text-center">
+            ✓ Code verified successfully!
+          </p>
         )}
 
         {/* Countdown Timer */}
@@ -259,15 +294,15 @@ const ForgotPassword = ({ email, onBack, onSuccess }) => {
         <Button 
           type="submit" 
           fullWidth={true} 
-          disabled={isVerifying || timeLeft === 0 || code.join('').length !== 6}
+          disabled={timeLeft === 0 || code.join('').length !== 6 || isVerifyingCode}
         >
-          {isVerifying ? (
+          {isVerifyingCode ? (
             <div className="flex items-center justify-center w-full">
               <LoadingSpinner size="small" color="white" />
               <span className="ml-2">Verifying Code...</span>
             </div>
           ) : (
-            "Verify Code"
+            "Verify Code & Continue"
           )}
         </Button>
       </form>

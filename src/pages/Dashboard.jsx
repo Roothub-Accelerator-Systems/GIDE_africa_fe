@@ -17,6 +17,7 @@ import {
 // Import shared components
 import Navbar from '../components/Shared/Navbar';
 import Sidebar from '../components/Shared/Sidebar';
+import ApiService from '../components/Auth/ApiService';
 
 const Dashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -24,6 +25,9 @@ const Dashboard = () => {
     fullName: '',
     email: '',
   });
+  const [loading, setLoading] = useState(true);
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
+  const navigate = useNavigate();
 
   // Mock data for resumes
   const resumes = [
@@ -57,8 +61,6 @@ const Dashboard = () => {
     { title: 'Last Updated', value: '2 days ago', icon: <Clock size={24} /> },
   ];
 
-  const navigate = useNavigate();
-
   const handleResumeBuilder = () => {
     navigate('/resume-builder');
   };
@@ -67,16 +69,68 @@ const Dashboard = () => {
     navigate('/cover-letter');
   };
 
-  // Load user data from localStorage on component mount
+  // Load user data from backend on component mount
   useEffect(() => {
-    const storedUserData = localStorage.getItem('userData');
-    if (storedUserData) {
-      setUserData(JSON.parse(storedUserData));
-    }
-  }, []);
+    const fetchUserData = async () => {
+      try {
+        if (ApiService.isAuthenticated()) {
+          console.log('Fetching user data from backend...');
+          const user = await ApiService.getCurrentUser();
+          console.log('Received user data');
+          
+          setUserData({
+            fullName: user.username || user.full_name || user.name || user.fullName || '',
+            email: user.email || '',
+          });
 
-  // Get first name for welcome message
-  const firstName = userData.fullName ? userData.fullName.split(' ')[0] : 'User';
+          // Check if this is a first-time user based on various indicators
+          // You can modify this logic based on your backend data structure
+          const isNewUser = user.is_new_user || user.first_login || user.created_recently || false;
+          setIsFirstTimeUser(isNewUser);
+          
+        } else {
+          console.log('User not authenticated, redirecting to login');
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+        console.error('Error details:', error.message);
+        
+        // If token is invalid, clear it and redirect to login
+        if (error.message.includes('401') || error.message.includes('unauthorized') || error.message.includes('Unauthorized')) {
+          console.log('Token invalid, clearing and redirecting to login');
+          localStorage.removeItem('authToken');
+          navigate('/login');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
+
+  // Get first name from full name
+  const getFirstName = () => {
+    if (userData.fullName) {
+      const nameParts = userData.fullName.trim().split(' ');
+      return nameParts[0] || 'User';
+    }
+    return userData.email ? userData.email.split('@')[0] : 'User';
+  };
+
+  // Get welcome message based on user status
+  const getWelcomeMessage = () => {
+    const firstName = getFirstName();
+    return isFirstTimeUser ? `Welcome, ${firstName}!` : `Welcome back, ${firstName}!`;
+  };
+
+  // Get welcome description based on user status
+  const getWelcomeDescription = () => {
+    return isFirstTimeUser 
+      ? "Let's get started with creating your first professional resume"
+      : "Here's a summary of your resume activities";
+  };
 
   // Animations
   const containerAnimation = {
@@ -97,6 +151,28 @@ const Dashboard = () => {
       transition: { duration: 0.3 }
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+                <div className="animate-pulse">
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
@@ -121,8 +197,12 @@ const Dashboard = () => {
               className="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow p-6"
               variants={itemAnimation}
             >
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome back, {firstName}!</h1>
-              <p className="text-gray-600 dark:text-gray-300 mt-1">Here's a summary of your resume activities</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {getWelcomeMessage()}
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 mt-1">
+                {getWelcomeDescription()}
+              </p>
             </motion.div>
 
             {/* Quick Stats */}

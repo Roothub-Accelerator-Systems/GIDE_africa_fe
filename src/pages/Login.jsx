@@ -23,8 +23,8 @@ const Login = ({ onLogin }) => {
   //   }
   // }, [firebase_user, loading, navigate, onLogin]);
   
-  const handleSubmit = (formData) => {
-    console.log('Form submitted:', formData);
+  const handleSubmit = () => {
+    console.log('Authentication Aprroved');
     
     // Clear any previous errors
     clearError();

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Eye, EyeOff, ArrowLeft, Check } from "lucide-react";
 import Button from "../Shared/Button";
 import LoadingSpinner from "../Shared/LoadingSpinner";
-import ApiService from "../Auth/ApiService"; // Updated import path
+import ApiService from "../Auth/ApiService";
 
 const ChangePassword = ({ email, code, onBack, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -14,10 +14,10 @@ const ChangePassword = ({ email, code, onBack, onSuccess }) => {
     confirmPassword: "",
     general: ""
   });
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPasswords, setShowPasswords] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -34,14 +34,15 @@ const ChangePassword = ({ email, code, onBack, onSuccess }) => {
         general: ""
       });
     }
+
+    // Clear success message when user starts typing
+    if (successMessage) {
+      setSuccessMessage("");
+    }
   };
 
-  const togglePasswordVisibility = (field) => {
-    if (field === 'new') {
-      setShowNewPassword(!showNewPassword);
-    } else {
-      setShowConfirmPassword(!showConfirmPassword);
-    }
+  const togglePasswordVisibility = () => {
+    setShowPasswords(!showPasswords);
   };
 
   const validateForm = () => {
@@ -83,9 +84,11 @@ const ChangePassword = ({ email, code, onBack, onSuccess }) => {
     
     setIsLoading(true);
     setErrors({ newPassword: "", confirmPassword: "", general: "" });
+    setSuccessMessage("");
     
     try {
-      // Call backend API to reset password (combines verify + reset)
+      // Call backend API to reset password using /reset endpoint
+      // This endpoint verifies the code and resets the password in one call
       const response = await ApiService.resetPassword(
         email,
         code,
@@ -94,24 +97,37 @@ const ChangePassword = ({ email, code, onBack, onSuccess }) => {
 
       console.log('Password reset successful:', response);
       
+      // Show success message
+      const message = response.message || 'Password changed successfully';
+      setSuccessMessage(message);
+      
+      // Reset form
+      setFormData({
+        newPassword: "",
+        confirmPassword: ""
+      });
+      setIsSubmitted(false);
+      
       // Call success callback with response data
       if (onSuccess) {
         onSuccess({ 
           email, 
-          message: response.message || 'Password changed successfully',
+          message: message,
           data: response
         });
       }
     } catch (error) {
       console.error('Password reset error:', error);
       
-      // Handle specific error cases
+      // Handle specific error cases based on FastAPI backend responses
       let errorMessage = 'Failed to change password. Please try again.';
       
-      if (error.message.includes('Invalid or expired')) {
+      if (error.message.includes('Invalid or expired reset code')) {
         errorMessage = 'Reset code is invalid or expired. Please request a new code.';
       } else if (error.message.includes('User not found')) {
         errorMessage = 'User account not found. Please check your email address.';
+      } else if (error.message.includes('password update failed')) {
+        errorMessage = 'Failed to update password. Please try again.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -165,6 +181,12 @@ const ChangePassword = ({ email, code, onBack, onSuccess }) => {
         Create a new password for <strong>{email}</strong>
       </p>
 
+      {successMessage && (
+        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+          <p className="text-sm text-green-700 dark:text-green-300 font-medium">{successMessage}</p>
+        </div>
+      )}
+
       {errors.general && (
         <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
           <p className="text-sm text-red-600 dark:text-red-400">{errors.general}</p>
@@ -180,7 +202,7 @@ const ChangePassword = ({ email, code, onBack, onSuccess }) => {
             <input
               id="newPassword"
               name="newPassword"
-              type={showNewPassword ? "text" : "password"}
+              type={showPasswords ? "text" : "password"}
               value={formData.newPassword}
               onChange={handleChange}
               onBlur={() => isSubmitted && validateForm()}
@@ -193,11 +215,11 @@ const ChangePassword = ({ email, code, onBack, onSuccess }) => {
             <button
               type="button"
               className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none disabled:opacity-50"
-              onClick={() => togglePasswordVisibility('new')}
+              onClick={togglePasswordVisibility}
               disabled={isLoading}
               tabIndex="-1"
             >
-              {showNewPassword ? (
+              {showPasswords ? (
                 <EyeOff className="h-5 w-5" />
               ) : (
                 <Eye className="h-5 w-5" />
@@ -260,29 +282,16 @@ const ChangePassword = ({ email, code, onBack, onSuccess }) => {
             <input
               id="confirmPassword"
               name="confirmPassword"
-              type={showConfirmPassword ? "text" : "password"}
+              type={showPasswords ? "text" : "password"}
               value={formData.confirmPassword}
               onChange={handleChange}
               onBlur={() => isSubmitted && validateForm()}
               disabled={isLoading}
               className={`block w-full px-3 py-2 bg-white dark:bg-gray-700 border ${
                 errors.confirmPassword ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-              } rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:text-white pr-10 disabled:opacity-50 disabled:cursor-not-allowed`}
+              } rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed`}
               placeholder="Confirm new password"
             />
-            <button
-              type="button"
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none disabled:opacity-50"
-              onClick={() => togglePasswordVisibility('confirm')}
-              disabled={isLoading}
-              tabIndex="-1"
-            >
-              {showConfirmPassword ? (
-                <EyeOff className="h-5 w-5" />
-              ) : (
-                <Eye className="h-5 w-5" />
-              )}
-            </button>
           </div>
           {errors.confirmPassword && (
             <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.confirmPassword}</p>
@@ -291,7 +300,7 @@ const ChangePassword = ({ email, code, onBack, onSuccess }) => {
 
         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            <strong>Note:</strong> This will immediately reset your password using the code sent to your email.
+            <strong>Note:</strong> This will reset your password using the verification code sent to your email.
           </p>
         </div>
 

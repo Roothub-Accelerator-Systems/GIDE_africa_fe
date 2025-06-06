@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import Button from "../Shared/Button";
 import LoadingSpinner from "../Shared/LoadingSpinner";
@@ -21,6 +21,8 @@ const LoginForm = ({ onSubmit }) => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isForgotPasswordLoading, setIsForgotPasswordLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -29,13 +31,15 @@ const LoginForm = ({ onSubmit }) => {
       [name]: type === "checkbox" ? checked : value,
     });
     
-    // Clear errors when user starts typing
-    if (errors[name]) {
+    // Clear errors and success message when user starts typing
+    if (errors[name] || successMessage) {
       setErrors({
         ...errors,
         [name]: "",
         general: ""
       });
+      setSuccessMessage("");
+      setShowSuccessMessage(false);
     }
   };
 
@@ -87,6 +91,8 @@ const LoginForm = ({ onSubmit }) => {
     
     setIsLoading(true);
     setErrors({ email: "", password: "", general: "" });
+    setSuccessMessage(""); // Clear any existing success message
+    setShowSuccessMessage(false);
     
     try {
       // Use ApiService for login
@@ -154,31 +160,37 @@ const LoginForm = ({ onSubmit }) => {
       return; // Don't proceed if email is invalid or empty
     }
 
-    // Check if email exists in database
+    // Check if email exists in database using the new endpoint
     setIsForgotPasswordLoading(true);
     try {
-      // Call API to check if email exists
-      await ApiService.checkEmailExistsPost(formData.email);
+      // Call the new check-email endpoint
+      const response = await ApiService.checkEmailExists(formData.email);
       
-      // If we reach here, email exists, proceed to forgot password flow
-      setShowForgotPassword(true);
-      setErrors({ email: "", password: "", general: "" }); // Clear any existing errors
+      console.log('Email check response:', response);
       
-    } catch (error) {
-      console.error("Email check failed:", error);
-      
-      // Handle different error cases
-      if (error.message.includes('not found') || error.message.includes('does not exist')) {
+      // Check if email exists based on the response
+      if (response.exists === true) {
+        // Email exists, proceed to forgot password flow
+        setShowForgotPassword(true);
+        setErrors({ email: "", password: "", general: "" }); // Clear any existing errors
+        setSuccessMessage(""); // Clear any existing success message
+        setShowSuccessMessage(false);
+      } else {
+        // Email doesn't exist
         setErrors({
           ...errors,
           email: "This account does not exist"
         });
-      } else {
-        setErrors({
-          ...errors,
-          general: "Unable to verify email. Please try again later."
-        });
       }
+      
+    } catch (error) {
+      console.error("Email check failed:", error);
+      
+      // Handle API errors
+      setErrors({
+        ...errors,
+        general: "Unable to verify email. Please try again later."
+      });
     } finally {
       setIsForgotPasswordLoading(false);
     }
@@ -190,9 +202,30 @@ const LoginForm = ({ onSubmit }) => {
 
   const handleForgotPasswordSuccess = (data) => {
     console.log("Password changed successfully:", data);
-    alert("Password changed successfully! Please log in with your new password.");
+    setSuccessMessage("Password changed successfully! Please log in with your new password.");
+    setShowSuccessMessage(true);
     setShowForgotPassword(false);
+    // Clear the password field for security
+    setFormData({
+      ...formData,
+      password: ""
+    });
   };
+
+  // Handle success message fade out
+  useEffect(() => {
+    if (showSuccessMessage) {
+      const timer = setTimeout(() => {
+        setShowSuccessMessage(false);
+        // Clear the message after fade out completes
+        setTimeout(() => {
+          setSuccessMessage("");
+        }, 300); // Wait for fade transition to complete
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessMessage]);
 
   if (showForgotPassword) {
     return (
@@ -206,6 +239,15 @@ const LoginForm = ({ onSubmit }) => {
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit} noValidate>
+      {/* Success message */}
+      {successMessage && (
+        <div className={`bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-3 transition-opacity duration-300 ${
+          showSuccessMessage ? 'opacity-100' : 'opacity-0'
+        }`}>
+          <p className="text-sm text-green-600 dark:text-green-400">{successMessage}</p>
+        </div>
+      )}
+
       {/* General error message */}
       {errors.general && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">

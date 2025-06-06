@@ -1,4 +1,4 @@
-// services/api.js
+// services/api.js - Updated with separate verify and reset endpoints
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 class ApiService {
@@ -27,7 +27,32 @@ class ApiService {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.detail || data.message || `HTTP error! status: ${response.status}`);
+        // Handle error message extraction more robustly
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        
+        if (data) {
+          if (typeof data.detail === 'string') {
+            errorMessage = data.detail;
+          } else if (Array.isArray(data.detail)) {
+            // Handle FastAPI validation errors which return an array
+            const errors = data.detail.map(err => {
+              if (err.loc && err.msg) {
+                return `${err.loc.join('.')}: ${err.msg}`;
+              }
+              return err.msg || err.message || JSON.stringify(err);
+            });
+            errorMessage = errors.join(', ');
+          } else if (typeof data.message === 'string') {
+            errorMessage = data.message;
+          } else if (data.detail && typeof data.detail === 'object') {
+            errorMessage = JSON.stringify(data.detail);
+          } else if (data.message && typeof data.message === 'object') {
+            errorMessage = JSON.stringify(data.message);
+          }
+        }
+        
+        console.error('API Error Response:', { status: response.status, data, url, config });
+        throw new Error(errorMessage);
       }
       
       return data;
@@ -39,93 +64,39 @@ class ApiService {
 
   // EMAIL CHECK METHODS
 
-  // Primary method: Check if email exists using dedicated endpoint (GET)
-  // async checkEmailExists(email) {
-  //   try {
-  //     if (!email || !/\S+@\S+\.\S+/.test(email)) {
-  //       throw new Error('Please provide a valid email address');
-  //     }
-
-  //     const response = await this.makeRequest(`/auth/check-email/${encodeURIComponent(email)}`, {
-  //       method: 'GET',
-  //     });
-      
-  //     return response;
-  //   } catch (error) {
-  //     console.error('Email check failed:', error);
-      
-  //     if (error.message.includes('404') || error.message.includes('not found')) {
-  //       throw new Error('Email does not exist');
-  //     } else if (error.message.includes('400')) {
-  //       throw new Error('Invalid email format');
-  //     }
-      
-  //     throw error;
-  //   }
-  // }
-
-  // Alternative method: Use POST request with email in body
-  async checkEmailExistsPost(email) {
+  // Primary method: Check if email exists using the new dedicated endpoint
+  async checkEmailExists(email) {
     try {
       if (!email || !/\S+@\S+\.\S+/.test(email)) {
         throw new Error('Please provide a valid email address');
       }
 
-      const response = await this.makeRequest('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({ email: email }),
+      const response = await this.makeRequest(`/auth/check-email?email=${encodeURIComponent(email)}`, {
+        method: 'GET',
       });
       
       return response;
     } catch (error) {
       console.error('Email check failed:', error);
-      
-      if (error.message.includes('404') || error.message.includes('not found')) {
-        throw new Error('Email does not exist');
-      } else if (error.message.includes('400')) {
-        throw new Error('Invalid email format');
-      }
-      
-      throw error;
-    }
-  }
-
-  // Smart email check method that tries multiple approaches
-  async checkEmailExistsSmart(email) {
-    try {
-      if (!email || !/\S+@\S+\.\S+/.test(email)) {
-        throw new Error('Please provide a valid email address');
-      }
-
-      // Try the primary method first (GET endpoint)
-      try {
-        return await this.checkEmailExists(email);
-      } catch (error) {
-        console.log('Primary email check failed, trying POST method...');
-        
-        // If GET fails, try POST method
-        try {
-          return await this.checkEmailExistsPost(email);
-        } catch (postError) {
-          console.log('POST email check failed');
-          throw postError;
-        }
-      }
-    } catch (error) {
-      console.error('All email check methods failed:', error);
       throw error;
     }
   }
 
   // AUTH ENDPOINTS
   async register(userData) {
+    const payload = {
+      username: userData.fullName, // Use fullName as username
+      full_name: userData.fullName,
+      email: userData.email,
+      password: userData.password,
+    };
+    
+    console.log('Registration payload being sent:', payload);
+    console.log('Original userData:', userData);
+    
     return this.makeRequest('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({
-        full_name: userData.fullName,
-        email: userData.email,
-        password: userData.password,
-      }),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -151,9 +122,9 @@ class ApiService {
   // USER PROFILE MANAGEMENT
   async getCurrentUser() {
     try {
-      console.log('Making request to /auth/me...');
-      const response = await this.makeRequest('/auth/me');
-      console.log('getCurrentUser response:', response);
+      console.log('Making request to fetch data');
+      const response = await this.makeRequest('/dashboard/me');
+      console.log('getCurrentUser response');
       return response;
     } catch (error) {
       console.error('Failed to get current user:', error);
@@ -201,18 +172,18 @@ class ApiService {
     return localStorage.getItem('authToken');
   }
 
-  // PASSWORD RESET METHODS (Backend-managed)
+  // PASSWORD RESET METHODS (Updated to use separate endpoints)
 
-  // Request password reset code from backend
+  // Step 1: Request password reset code using /forgot endpoint
   async sendPasswordResetCode(email) {
     try {
       // Validate email format
       if (!email || !/\S+@\S+\.\S+/.test(email)) {
         throw new Error('Please provide a valid email address');
       }
-
-      // Send request to backend to generate and send reset code
-      const response = await this.makeRequest('/auth/forgot-password', {
+      
+      // Send request to backend /forgot endpoint to generate and send reset code
+      const response = await this.makeRequest('/password-reset/forgot', {
         method: 'POST',
         body: JSON.stringify({
           email: email,
@@ -228,7 +199,7 @@ class ApiService {
       console.error('Failed to send reset email:', error);
       
       // Handle specific backend error messages
-      if (error.message.includes('not found') || error.message.includes('does not exist')) {
+      if (error.message.includes('not found') || error.message.includes('User not found')) {
         throw new Error('Email address not found in our system');
       } else if (error.message.includes('rate limit') || error.message.includes('too many')) {
         throw new Error('Too many reset requests. Please wait before requesting again.');
@@ -240,18 +211,18 @@ class ApiService {
     }
   }
 
-  // Verify reset code with backend
-  async verifyPasswordResetCode(email, code) {
+  // Step 2: Verify reset code using /verify-code endpoint
+  async verifyResetCode(email, code) {
     try {
       if (!email || !code) {
         throw new Error('Email and verification code are required');
       }
 
-      if (code.length !== 6 || !/^\d{6}$/.test(code)) {
-        throw new Error('Please enter a valid 6-digit code');
+      if (code.length !== 6) {
+        throw new Error('Verification code must be 6 digits');
       }
-
-      const response = await this.makeRequest('/auth/verify-reset-code', {
+      
+      const response = await this.makeRequest('/password-reset/verify-code', {
         method: 'POST',
         body: JSON.stringify({
           email: email,
@@ -269,34 +240,34 @@ class ApiService {
       console.error('Code verification failed:', error);
       
       // Handle specific backend error messages
-      if (error.message.includes('invalid') || error.message.includes('incorrect')) {
-        throw new Error('Invalid verification code');
-      } else if (error.message.includes('expired')) {
-        throw new Error('Verification code has expired. Please request a new one.');
-      } else if (error.message.includes('attempts') || error.message.includes('limit')) {
-        throw new Error('Too many verification attempts. Please request a new code.');
+      if (error.message.includes('Invalid or expired reset code')) {
+        throw new Error('Invalid or expired verification code. Please request a new code.');
+      } else if (error.message.includes('User not found')) {
+        throw new Error('User account not found. Please check your email address.');
+      } else if (error.message.includes('Code expired')) {
+        throw new Error('Verification code has expired. Please request a new code.');
       }
       
       throw error;
     }
   }
 
-  // Reset password using backend verification
+  // Step 3: Reset password using /reset endpoint (requires verified code)
   async resetPassword(email, code, newPassword) {
     try {
       if (!email || !code || !newPassword) {
         throw new Error('Email, verification code, and new password are required');
       }
-
+      
       if (newPassword.length < 8) {
         throw new Error('Password must be at least 8 characters long');
       }
-
-      const response = await this.makeRequest('/auth/register', {
+      
+      const response = await this.makeRequest('/password-reset/reset', {
         method: 'POST',
         body: JSON.stringify({
           email: email,
-          verification_code: code,
+          code: code,
           new_password: newPassword,
         }),
       });
@@ -311,12 +282,12 @@ class ApiService {
       console.error('Password reset failed:', error);
       
       // Handle specific backend error messages
-      if (error.message.includes('invalid') || error.message.includes('incorrect')) {
-        throw new Error('Invalid verification code');
-      } else if (error.message.includes('expired')) {
-        throw new Error('Verification code has expired. Please start the reset process again.');
-      } else if (error.message.includes('password')) {
-        throw new Error('Password must be at least 8 characters long and meet security requirements');
+      if (error.message.includes('Invalid or expired reset code')) {
+        throw new Error('Invalid or expired verification code. Please request a new code.');
+      } else if (error.message.includes('User not found')) {
+        throw new Error('User account not found. Please check your email address.');
+      } else if (error.message.includes('password update failed') || error.message.includes('Password update failed')) {
+        throw new Error('Failed to update password. Please try again.');
       }
       
       throw error;
