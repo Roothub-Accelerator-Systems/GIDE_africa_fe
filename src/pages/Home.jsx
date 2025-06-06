@@ -351,7 +351,7 @@ const Home = () => {
             >
               Start Building Your Resume Now
             </button>
-            <p className="mt-4 text-sm opacity-75">Free forever • No credit card required</p>
+            {/* <p className="mt-4 text-sm opacity-75">Free forever • No credit card required</p> */}
           </div>
         </div>
       </section>
