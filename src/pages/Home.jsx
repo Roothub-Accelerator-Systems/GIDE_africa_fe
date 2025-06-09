@@ -429,7 +429,7 @@ const Home = () => {
               <div className="space-y-2">
                 <div className="flex items-center text-gray-400 dark:text-gray-300">
                   <Mail className="w-4 h-4 mr-2" />
-                  <span className="text-sm">support@resumeai.com</span>
+                  <span className="text-sm">gideafrica@gmail.com</span>
                 </div>
                 <div className="flex items-center text-gray-400 dark:text-gray-300">
                   <Phone className="w-4 h-4 mr-2" />
@@ -437,7 +437,7 @@ const Home = () => {
                 </div>
                 <div className="flex items-center text-gray-400 dark:text-gray-300">
                   <MapPin className="w-4 h-4 mr-2" />
-                  <span className="text-sm">San Francisco, CA</span>
+                  <span className="text-sm">Uyo, Akwa Ibom</span>
                 </div>
               </div>
             </div>
@@ -465,14 +465,14 @@ const Home = () => {
               
               <div className="text-center md:text-right">
                 <p className="text-gray-400 dark:text-gray-300 text-sm">
-                  © 2025 ResumeAI. All rights reserved. Made with ❤️ for job seekers worldwide.
+                  © 2025 ResumeAI. All rights reserved. Made with passion for job seekers worldwide.
                 </p>
                 <div className="flex items-center justify-center md:justify-end mt-2 space-x-4 text-xs text-gray-500 dark:text-gray-400">
-                  <span>🌍 Available in 15 languages</span>
+                  <span> Available in 15 languages</span>
                   <span>•</span>
-                  <span>🏆 50,000+ success stories</span>
+                  <span> 50,000+ success stories</span>
                   <span>•</span>
-                  <span>⚡ 99.9% uptime</span>
+                  <span> 99.9% uptime</span>
                 </div>
               </div>
             </div>
@@ -485,7 +485,7 @@ const Home = () => {
         className={`fixed bottom-8 right-8 p-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-lg z-50 transition-all duration-300 hover:scale-110 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
         onClick={scrollToTop}
       >
-        <ChevronUp className="w-6 h-6" />
+        <ChevronUp className="dark:text-white w-10 h-10" />
       </button>
     </div>
   );
