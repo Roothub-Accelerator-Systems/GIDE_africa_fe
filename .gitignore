@@ -26,3 +26,5 @@ dist-ssr
 # process.env
 
 .env
+.gitignore
+firebase.jsx

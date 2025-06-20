@@ -231,28 +231,36 @@ const SignupForm = ({ onSubmit }) => {
     } catch (error) {
       console.error("Signup process error:", error);
       
-      // Handle specific error cases
-      if (error.message.includes('Email already exists') || error.message.includes('Email already registered')) {
+      // Handle specific error cases - Updated to match actual API error messages
+      const errorMessage = error.message.toLowerCase();
+      
+      if (errorMessage.includes('user with this email') || 
+          errorMessage.includes('email already exists') || 
+          errorMessage.includes('email already registered') ||
+          errorMessage.includes('username already exists')) {
         setErrors({
           ...errors,
-          email: "An account with this email already exists."
+          email: "An account with this email already exists. Please try logging in instead."
         });
-      } else if (error.message.includes('Invalid email')) {
+      } else if (errorMessage.includes('invalid email')) {
         setErrors({
           ...errors,
           email: "Please enter a valid email address."
         });
-      } else if (error.message.includes('Password too weak')) {
+      } else if (errorMessage.includes('password too weak') || 
+                 errorMessage.includes('password must be')) {
         setErrors({
           ...errors,
           password: "Password does not meet security requirements."
         });
-      } else if (error.message.includes('Full name') || error.message.includes('Name')) {
+      } else if (errorMessage.includes('full name') || 
+                 errorMessage.includes('name') ||
+                 errorMessage.includes('username')) {
         setErrors({
           ...errors,
           fullName: "Please enter a valid full name."
         });
-      } else if (error.message.includes('Invalid credentials')) {
+      } else if (errorMessage.includes('invalid credentials')) {
         // This might happen during auto-login
         setErrors({
           ...errors,
@@ -260,10 +268,17 @@ const SignupForm = ({ onSubmit }) => {
         });
         // Still redirect to login in this case
         setTimeout(() => navigate('/login'), 2000);
-      } else {
+      } else if (errorMessage.includes('network error') || 
+                 errorMessage.includes('unable to connect')) {
         setErrors({
           ...errors,
-          general: "Account creation failed. Please try again later."
+          general: "Network error. Please check your internet connection and try again."
+        });
+      } else {
+        // For any other errors, show the actual error message or a generic fallback
+        setErrors({
+          ...errors,
+          general: error.message || "Account creation failed. Please try again later."
         });
       }
     } finally {

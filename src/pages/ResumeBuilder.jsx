@@ -144,10 +144,10 @@ const ResumeBuilder = () => {
   // Sections for navigation
   const sections = [
     { id: 'personal', name: 'Personal Info', icon: <User size={20} /> },
-    { id: 'summary', name: 'Summary', icon: <MessageSquareText size={20} /> },
+    { id: 'skills', name: 'Skills', icon: <Star size={20} /> },
     { id: 'experience', name: 'Experience', icon: <Briefcase size={20} /> },
     { id: 'education', name: 'Education', icon: <GraduationCap size={20} /> },
-    { id: 'skills', name: 'Skills', icon: <Star size={20} /> },
+    { id: 'summary', name: 'Summary', icon: <MessageSquareText size={20} /> },  
     // { id: 'certifications', name: 'Certifications', icon: <Award size={20} /> }
   ];
 

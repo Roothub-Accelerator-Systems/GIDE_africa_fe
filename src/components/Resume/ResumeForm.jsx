@@ -201,7 +201,7 @@ const ResumeForm = ({ updatePreview, activeSection }) => {
   return (
     <div className="flex flex-col">
       {/* Job Description Upload - Only show on initial view or when appropriate */}
-      {activeSection === "personal" && (
+      {/* {activeSection === "personal" && (
         <div className="mb-6 bg-blue-50 dark:bg-gray-800 rounded-lg p-4 border border-blue-100 dark:border-gray-700">
           <div className="flex flex-col md:flex-row md:items-center justify-between">
             <div className="mb-4 md:mb-0">
@@ -229,7 +229,7 @@ const ResumeForm = ({ updatePreview, activeSection }) => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Show only the active section */}
       {activeSectionData && (

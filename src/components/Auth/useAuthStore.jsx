@@ -53,7 +53,7 @@ export const useAuthStore = create((set, get) => ({
   // Initialize auth state listener
   initializeAuth: () => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log('Auth state changed:', user) // Debug log
+      console.log('Auth state changed:') // Debug log
       set({ 
         firebase_user: user, 
         loading: false,

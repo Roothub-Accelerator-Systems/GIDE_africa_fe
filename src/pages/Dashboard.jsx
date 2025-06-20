@@ -73,32 +73,30 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        if (ApiService.isAuthenticated()) {
-          console.log('Fetching user data from backend...');
-          const user = await ApiService.getCurrentUser();
-          console.log('Received user data');
-          
-          setUserData({
-            fullName: user.username || user.full_name || user.name || user.fullName || '',
-            email: user.email || '',
-          });
+        console.log('Fetching user data from backend...');
+        const user = await ApiService.getCurrentUser();
+        console.log('Received user data');
+        
+        setUserData({
+          fullName: user.username || user.full_name || user.name || user.fullName || '',
+          email: user.email || '',
+        });
 
-          // Check if this is a first-time user based on various indicators
-          // You can modify this logic based on your backend data structure
-          const isNewUser = user.is_new_user || user.first_login || user.created_recently || false;
-          setIsFirstTimeUser(isNewUser);
-          
-        } else {
-          console.log('User not authenticated, redirecting to login');
-          navigate('/login');
-        }
+        // Check if this is a first-time user based on various indicators
+        // You can modify this logic based on your backend data structure
+        const isNewUser = user.is_new_user || user.first_login || user.created_recently || false;
+        setIsFirstTimeUser(isNewUser);
+        
       } catch (error) {
         console.error('Failed to fetch user data:', error);
         console.error('Error details:', error.message);
         
-        // If token is invalid, clear it and redirect to login
-        if (error.message.includes('401') || error.message.includes('unauthorized') || error.message.includes('Unauthorized')) {
-          console.log('Token invalid, clearing and redirecting to login');
+        // If token is invalid or user is not authenticated, redirect to login
+        if (error.message.includes('401') || 
+            error.message.includes('unauthorized') || 
+            error.message.includes('Unauthorized') ||
+            error.message.includes('authentication')) {
+          console.log('Authentication failed, redirecting to login');
           localStorage.removeItem('authToken');
           navigate('/login');
         }

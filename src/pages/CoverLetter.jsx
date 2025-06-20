@@ -1,17 +1,20 @@
-import { useState, useEffect } from 'react';
-import { useTheme } from '../context/ThemeContext';
+import { useState } from 'react';
+// import { useTheme } from '../context/ThemeContext';
 import Navbar from '../components/Shared/Navbar';
 import Sidebar from '../components/Shared/Sidebar';
 import LoadingSpinner from '../components/Shared/LoadingSpinner';
+import ApiService from '../components/Auth/ApiService';
+import { UploadButton } from '../lib/uploadthing';
 
 const CoverLetter = () => {
-  const { darkMode } = useTheme();
+  // const {  } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     jobTitle: '',
     companyName: '',
     keyPoints: '',
+    jobDescriptionUrl: '', // Store UploadThing URL
   });
   
   const [errors, setErrors] = useState({
@@ -19,13 +22,17 @@ const CoverLetter = () => {
     jobTitle: '',
     companyName: '',
     keyPoints: '',
+    fileUpload: '',
   });
   
   const [generatedLetter, setGeneratedLetter] = useState('');
-  const [completeLetter, setCompleteLetter] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState(0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedLetter, setEditedLetter] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -65,34 +72,30 @@ const CoverLetter = () => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
-  // Effect to handle the word-by-word generation
-  useEffect(() => {
-    let timeoutId;
+
+  const validateFileType = (file) => {
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt'];
+    const maxSize = 2 * 1024 * 1024; // 2MB in bytes
     
-    if (isGenerating && completeLetter) {
-      const words = completeLetter.split(' ');
-      
-      if (generationProgress < words.length) {
-        // Add the next word with a space (except for the first word)
-        const nextWord = words[generationProgress];
-        const space = generationProgress > 0 ? ' ' : '';
-        
-        timeoutId = setTimeout(() => {
-          setGeneratedLetter(prev => prev + space + nextWord);
-          setGenerationProgress(prev => prev + 1);
-        }, 50); // Adjust speed of generation here
-      } else {
-        setIsGenerating(false);
+    // Check file type
+    if (!allowedTypes.includes(file.type)) {
+      const fileName = file.name.toLowerCase();
+      const hasValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+      if (!hasValidExtension) {
+        return { valid: false, error: 'Please upload only PDF, DOC, DOCX, or TXT files.' };
       }
     }
     
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [isGenerating, completeLetter, generationProgress]);
+    // Check file size
+    if (file.size > maxSize) {
+      return { valid: false, error: 'File size must be less than 2MB.' };
+    }
+    
+    return { valid: true };
+  };
   
-  const handleGenerate = (e) => {
+  const handleGenerate = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -101,36 +104,61 @@ const CoverLetter = () => {
     
     setIsGenerating(true);
     setGeneratedLetter('');
-    setGenerationProgress(0);
     
-    // Prepare the complete letter that will be generated word by word
-    const newLetter = `Dear Hiring Manager at ${formData.companyName},
-
-I am writing to express my interest in the ${formData.jobTitle} position at ${formData.companyName}. With my background in this field, I believe I would be a valuable addition to your team.
-
-${formData.keyPoints}
-
-I am excited about the opportunity to bring my skills to ${formData.companyName} and contribute to your continued success. I look forward to the possibility of discussing how my background, skills, and achievements can benefit your organization.
-
-Thank you for considering my application.
-
-Sincerely,
-${formData.fullName}`;
+    try {
+      const response = await ApiService.generateCoverLetter(formData);
+      console.log('Full response.data:', response.data);
+      setGeneratedLetter(response.data?.generated_letter || response.data?.letter || response.generated_letter || response.letter || '');
+    } catch (error) {
+      console.error('Failed to generate cover letter:', error);
+      setErrors(prev => ({
+        ...prev,
+        general: error.message || 'Failed to generate cover letter. Please try again.'
+      }));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
+  const handleSave = async () => {
+    if (!generatedLetter.trim()) {
+      return;
+    }
     
-    setCompleteLetter(newLetter.trim());
+    setIsSaving(true);
+    
+    try {
+      const dataToSave = {
+        ...formData,
+        generatedLetter: isEditing ? editedLetter : generatedLetter,
+      };
+      
+      const response = await ApiService.saveCoverLetter(dataToSave);
+      console.log('Cover letter saved:', response);
+      
+      // Show success message or handle success
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+      
+    } catch (error) {
+      console.error('Failed to save cover letter:', error);
+      setErrors(prev => ({
+        ...prev,
+        general: error.message || 'Failed to save cover letter. Please try again.'
+      }));
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   const handleCopy = () => {
-    navigator.clipboard.writeText(generatedLetter)
+    const textToCopy = isEditing ? editedLetter : generatedLetter;
+    navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        // Show success indicator
         setCopySuccess(true);
-        
-        // Reset back to "Copy" after 1.5 seconds
         setTimeout(() => {
           setCopySuccess(false);
         }, 1500);
-        
         console.log('Cover letter copied to clipboard');
       })
       .catch(err => {
@@ -138,30 +166,55 @@ ${formData.fullName}`;
       });
   };
   
-  const handleRegenerate = () => {
+  const handleRegenerate = async () => {
     if (!validateForm()) {
       return;
     }
     
     setIsGenerating(true);
     setGeneratedLetter('');
-    setGenerationProgress(0);
+    setIsEditing(false);
+    setEditedLetter('');
     
-    // Prepare the complete letter that will be generated word by word
-    const newLetter = `Dear Hiring Team at ${formData.companyName},
+    try {
+      const response = await ApiService.generateCoverLetter(formData);
+      setGeneratedLetter(response.data?.generated_letter || response.data?.letter || response.generated_letter || response.letter || '');
+    } catch (error) {
+      console.error('Failed to regenerate cover letter:', error);
+      setErrors(prev => ({
+        ...prev,
+        general: error.message || 'Failed to regenerate cover letter. Please try again.'
+      }));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-I am writing to apply for the ${formData.jobTitle} role at ${formData.companyName}. Having researched your company's mission and values, I am confident that my skills and experience align perfectly with what you're looking for.
+  const handleEdit = () => {
+    setIsEditing(true);
+    setEditedLetter(generatedLetter);
+  };
 
-${formData.keyPoints}
+  const handleSaveEdit = () => {
+    setGeneratedLetter(editedLetter);
+    setIsEditing(false);
+  };
 
-I am particularly drawn to ${formData.companyName}'s innovative approach and would welcome the opportunity to contribute to your team's success. I am available for an interview at your convenience to discuss how my qualifications match your requirements.
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedLetter('');
+  };
 
-Thank you for your time and consideration.
-
-Best regards,
-${formData.fullName}`;
-    
-    setCompleteLetter(newLetter.trim());
+  const handleFileRemove = () => {
+    setUploadedFile(null);
+    setFormData(prev => ({
+      ...prev,
+      jobDescriptionUrl: ''
+    }));
+    setErrors(prev => ({
+      ...prev,
+      fileUpload: ''
+    }));
   };
 
   return (
@@ -170,7 +223,7 @@ ${formData.fullName}`;
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
       
       {/* Main Content */}
-      <div className=" flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Navbar */}
         <Navbar toggleSidebar={toggleSidebar} />
         
@@ -178,6 +231,13 @@ ${formData.fullName}`;
         <div className="flex-1 overflow-y-auto">
           <div className="container mx-auto px-4 py-8">
             <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">AI Cover Letter Generator</h1>
+            
+            {/* Error Messages */}
+            {errors.general && (
+              <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 rounded-md">
+                {errors.general}
+              </div>
+            )}
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Input Form */}
@@ -264,38 +324,169 @@ ${formData.fullName}`;
                     />
                   </div>
                   
+                  {/* File Upload Section */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Job Description Upload (Optional)
+                    </label>
+                    
+                    {!uploadedFile ? (
+                      <div className="mt-1">
+                        <UploadButton
+                          endpoint="jobDescriptionUploader"
+                          onClientUploadComplete={(res) => {
+                            console.log("Files: ", res);
+                            if (res && res[0]) {
+                              setUploadedFile({
+                                name: res[0].name,
+                                url: res[0].url,
+                                size: res[0].size
+                              });
+                              setFormData(prev => ({
+                                ...prev,
+                                jobDescriptionUrl: res[0].url
+                              }));
+                              setErrors(prev => ({
+                                ...prev,
+                                fileUpload: ''
+                              }));
+                              setIsUploading(false);
+                            }
+                          }}
+                          onUploadError={(error) => {
+                            console.error("Upload error:", error);
+                            setIsUploading(false);
+                            setErrors(prev => ({
+                              ...prev,
+                              fileUpload: error.message || 'Upload failed. Please try again.'
+                            }));
+                          }}
+                          onUploadBegin={(name) => {
+                            console.log("Upload started for:", name);
+                            setIsUploading(true);
+                            setErrors(prev => ({
+                              ...prev,
+                              fileUpload: ''
+                            }));
+                          }}
+                          onUploadProgress={(progress) => {
+                            console.log("Upload progress:", progress);
+                          }}
+                          onBeforeUploadBegin={(files) => {
+                            console.log("Files before upload:", files);
+                            
+                            // Validate each file
+                            for (const file of files) {
+                              const validation = validateFileType(file);
+                              if (!validation.valid) {
+                                setErrors(prev => ({
+                                  ...prev,
+                                  fileUpload: validation.error
+                                }));
+                                // Return empty array to prevent upload
+                                return [];
+                              }
+                            }
+                            
+                            return files; // Return files if validation passes
+                          }}
+                          appearance={{
+                            button: `w-full h-32 border-2 border-gray-300 border-dashed rounded-lg 
+                                  cursor-pointer bg-gray-50 dark:hover:bg-gray-700 
+                                  dark:bg-gray-800 hover:bg-gray-100 dark:border-gray-600
+                                  flex flex-col items-center justify-center transition-colors
+                                  ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`,
+                            allowedContent: "text-xs text-gray-500 dark:text-gray-400",
+                          }}
+                          content={{
+                            button: ({ ready, isUploading: uploading }) => {
+                              if (uploading || isUploading) {
+                                return (
+                                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3"></div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Uploading...</p>
+                                  </div>
+                                );
+                              }
+                              
+                              if (ready) {
+                                return (
+                                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <svg className="w-8 h-8 mb-3 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                                    </svg>
+                                    <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                                      <span className="font-semibold">Click to upload</span> or drag and drop
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">PDF, DOC, DOCX, or TXT (MAX. 2MB)</p>
+                                  </div>
+                                );
+                              }
+                              
+                              return (
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Getting ready...</p>
+                                </div>
+                              );
+                            },
+                            allowedContent: "PDF, DOC, DOCX, or TXT files up to 2MB"
+                          }}
+                          config={{
+                            mode: "auto",
+                          }}
+                        />
+                        {isUploading && (
+                          <div className="mt-2 flex items-center justify-center">
+                            <LoadingSpinner size="small" color="primary" />
+                            <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Uploading...</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-1 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            <div>
+                              <p className="text-sm font-medium text-green-800 dark:text-green-400">
+                                {uploadedFile.name}
+                              </p>
+                              <p className="text-xs text-green-600 dark:text-green-500">
+                                {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleFileRemove}
+                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {errors.fileUpload && (
+                      <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 rounded-md text-sm">
+                        {errors.fileUpload}
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="pt-2">
                     <button
                       type="submit"
-                      disabled={isGenerating}
+                      disabled={isGenerating || isUploading}
                       className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md 
                               focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
                     >
                       {isGenerating ? 'Generating...' : 'Generate Cover Letter'}
                     </button>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Job Description Upload (Optional)
-                    </label>
-                    <div className="flex items-center justify-center w-full">
-                      <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 
-                                                            border-2 border-gray-300 border-dashed rounded-lg 
-                                                            cursor-pointer bg-gray-50 dark:hover:bg-gray-700 
-                                                            dark:bg-gray-800 hover:bg-gray-100 dark:border-gray-600">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <svg className="w-8 h-8 mb-3 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                            <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
-                          </svg>
-                          <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                            <span className="font-semibold">Click to upload</span> or drag and drop
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">PDF, DOC, or TXT (MAX. 2MB)</p>
-                        </div>
-                        <input id="dropzone-file" type="file" className="hidden" />
-                      </label>
-                    </div>
                   </div>
                 </form>
               </div>
@@ -308,57 +499,106 @@ ${formData.fullName}`;
                   <div className="flex space-x-2">
                     {generatedLetter && !isGenerating && (
                       <>
-                        <button
-                          onClick={handleRegenerate}
-                          disabled={isGenerating}
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded
-                                  focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-60"
-                        >
-                          Regenerate
-                        </button>
-                        <button
-                          onClick={handleCopy}
-                          disabled={isGenerating}
-                          className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded
-                                  focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-60 flex items-center"
-                        >
-                          {copySuccess ? (
-                            <span className="flex items-center">
-                              <svg className="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        {!isEditing ? (
+                          <>
+                            <button
+                              onClick={handleEdit}
+                              disabled={isGenerating}
+                              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded
+                                      focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-60 flex items-center"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
-                              Copied!
-                            </span>
-                          ) : (
-                            "Copy"
-                          )}
-                        </button>
+                              Edit
+                            </button>
+                            <button
+                              onClick={handleRegenerate}
+                              disabled={isGenerating}
+                              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded
+                                      focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-60"
+                            >
+                              Regenerate
+                            </button>
+                            <button
+                              onClick={handleSave}
+                              disabled={isSaving}
+                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded
+                                      focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                            >
+                              {isSaving ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={handleCopy}
+                              disabled={isGenerating}
+                              className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded
+                                      focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-60 flex items-center"
+                            >
+                              {copySuccess ? (
+                                <span className="flex items-center">
+                                  <svg className="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                  Copied!
+                                </span>
+                              ) : (
+                                "Copy"
+                              )}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={handleSaveEdit}
+                              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded
+                                      focus:outline-none focus:ring-2 focus:ring-green-500"
+                            >
+                              Save Changes
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded
+                                      focus:outline-none focus:ring-2 focus:ring-gray-500"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                   </div>
                 </div>
                 
-                <div className="whitespace-pre-line bg-gray-50 dark:bg-gray-700 p-6 rounded-md h-166 overflow-y-auto
-                              text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
-                  {isGenerating && generatedLetter === '' ? (
-                    <div className="flex items-center justify-center h-full">
-                      <LoadingSpinner size="medium" color="primary" />
-                    </div>
-                  ) : isGenerating || generatedLetter ? (
-                    <>
-                      {generatedLetter}
-                      {isGenerating && <span className="animate-pulse">|</span>}
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
-                      Fill in the form and click "Generate Cover Letter" to create your personalized cover letter
-                    </div>
-                  )}
-                </div>
+                {!isEditing ? (
+                  <div className="whitespace-pre-line bg-gray-50 dark:bg-gray-700 p-6 rounded-md h-166 overflow-y-auto
+                                text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
+                    {isGenerating ? (
+                      <div className="flex items-center justify-center h-full">
+                        <LoadingSpinner size="medium" color="primary" />
+                      </div>
+                    ) : generatedLetter ? (
+                      generatedLetter
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+                        Fill in the form and click "Generate Cover Letter" to create your personalized cover letter
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <textarea
+                    value={editedLetter}
+                    onChange={(e) => setEditedLetter(e.target.value)}
+                    className="w-full h-96 p-4 border border-gray-300 dark:border-gray-600 rounded-md
+                             focus:ring-blue-500 focus:border-blue-500 
+                             bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
+                             font-mono text-sm resize-none"
+                    placeholder="Edit your cover letter here..."
+                  />
+                )}
                 
-                {generatedLetter && !isGenerating && (
+                {generatedLetter && !isGenerating && !isEditing && (
                   <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-                    <p>You can edit this cover letter directly or click "Regenerate" for a new version.</p>
+                    <p>You can edit this cover letter directly, save it to your account, or click "Regenerate" for a new version.</p>
                   </div>
                 )}
               </div>

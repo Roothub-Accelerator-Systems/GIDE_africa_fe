@@ -95,51 +95,95 @@ const LoginForm = ({ onSubmit }) => {
     setShowSuccessMessage(false);
     
     try {
+      // Clear any existing tokens before login
+      console.log('Clearing existing tokens before login...');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
+      
+      console.log('Attempting login with:', { email: formData.email, password: '[HIDDEN]' });
+      
       // Use ApiService for login
-      const data = await ApiService.login({
+      const response = await ApiService.login({
         email: formData.email,
         password: formData.password
       });
       
-      // Store the auth token
-      if (data.access_token) {
-        localStorage.setItem('authToken', data.access_token);
-        console.log('Auth token stored:', data.access_token);
+      console.log("Full login response:", response);
+      
+      // The ApiService.login method should handle token storage internally
+      // But let's also check what we got back
+      const userData = response.data || response;
+      const accessToken = userData.access_token || response.access_token;
+      
+      if (accessToken) {
+        console.log('Login successful - token received and stored by ApiService');
+        
+        // Don't store duplicate tokens - ApiService already handles this
+        // Just store user data if needed
+        if (userData.user) {
+          localStorage.setItem('userData', JSON.stringify(userData.user));
+          console.log('User data stored:', userData.user);
+        }
+        
+        // Call the onSubmit prop function if provided
+        if (onSubmit) {
+          onSubmit({ 
+            ...formData, 
+            authToken: accessToken,
+            user: userData.user 
+          });
+        }
+        
+        console.log("Login completed successfully");
+        
+      } else {
+        console.error('No access token received in response:', response);
+        throw new Error('Login failed: No access token received');
       }
-      
-      // Store user data if available
-      if (data.user) {
-        console.log('User data:', data.user);
-      }
-      
-      console.log("Login successful:", data);
-      
-      // Call the onSubmit prop function if provided
-      if (onSubmit) {
-        onSubmit({ ...formData, authToken: data.access_token });
-      }
-      
-      // In a real app, you would navigate to dashboard here
-      // alert('Login successful! Redirecting to dashboard...');
       
     } catch (error) {
       console.error("Login error:", error);
+      console.log('Exact error message:', error.message); // Debug log
       
-      // Handle specific error cases
-      if (error.message.includes('Invalid credentials')) {
+      // Handle specific error cases - check for the actual error messages your API returns
+      if (error.message.includes('Invalid email or password') || 
+          error.message.includes('Invalid credentials') ||
+          error.message.includes('Incorrect email or password')) {
         setErrors({
           ...errors,
           general: "Invalid email or password. Please try again."
         });
-      } else if (error.message.includes('Email not found')) {
+      } else if (error.message.includes('Email not found') || 
+                 error.message.includes('User not found')) {
         setErrors({
           ...errors,
           email: "No account found with this email address."
         });
-      } else {
+      } else if (error.message.includes('Network error') || 
+                 error.message.includes('Unable to connect')) {
         setErrors({
           ...errors,
-          general: "Login failed. Please try again later."
+          general: "Network error. Please check your connection and try again."
+        });
+      } else if (error.message.includes('fetch')) {
+        setErrors({
+          ...errors,
+          general: "Connection error. Please check your internet connection."
+        });
+      } else if (error.message.includes('Authentication expired') ||
+                 error.message.includes('Authentication required')) {
+        // This shouldn't happen during login, but if it does, it's likely a server issue
+        setErrors({
+          ...errors,
+          general: "Server authentication error. Please try again."
+        });  
+      } else {
+        // For any other errors, show the actual error message instead of generic message
+        setErrors({
+          ...errors,
+          general: error.message || "Login failed. Please try again later."
         });
       }
     } finally {

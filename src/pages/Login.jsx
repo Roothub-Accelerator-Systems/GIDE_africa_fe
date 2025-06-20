@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '../components/Auth/useAuthStore'; // Adjust path as needed
 import LoginForm from '../components/Auth/LoginForm';
 import SignupForm from '../components/Auth/SignupForm';
+import ApiService from '../components/Auth/ApiService'; // Adjust the import path as needed
 
 const Login = ({ onLogin }) => {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ const Login = ({ onLogin }) => {
   // }, [firebase_user, loading, navigate, onLogin]);
   
   const handleSubmit = () => {
-    console.log('Authentication Aprroved');
+    console.log('Authentication Approved');
     
     // Clear any previous errors
     clearError();
@@ -38,50 +39,97 @@ const Login = ({ onLogin }) => {
 
   const handleClose = () => {
     // Clear any errors when closing
-    
-      navigate('/');
-    
+    navigate('/');
   };
 
   const handleGoogleSignIn = async () => {
-    const user = await signInWithGoogle();
-    
-    if (user) {
-      try {
-        // Send user data to your backend
-        const response = await fetch('/api/auth/google', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-            emailVerified: user.emailVerified,
-          }),
-        });
-
-        if (response.ok) {
-          const backendData = await response.json();
-          console.log('Backend response:', backendData);
-        } else {
-          console.error('Backend authentication failed');
-          // Continue anyway since Firebase auth succeeded
-        }
-      } catch (backendError) {
-        console.error('Backend request failed:', backendError);
-        // Continue anyway since Firebase auth succeeded
-      }
+    try {
+      // First, authenticate with Firebase/Google
+      const user = await signInWithGoogle();
       
-      // Always redirect on successful Firebase auth
-      if (onLogin) {
-        onLogin();
+      if (user) {
+        try {
+          let backendResponse;
+          
+          // Use different endpoints based on the current path
+          if (isLoginPath) {
+            // For login page, use /auth/google-sign-in endpoint
+            console.log('Using Google Sign-In endpoint for login');
+            backendResponse = await ApiService.makeRequest('/auth/google-sign-in', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL,
+                emailVerified: user.emailVerified,
+                id_token: user.accessToken, // Include ID token if available
+              }),
+            });
+            console.log('Google Sign-Up backend response:', backendResponse);
+          } else {
+            // For signup page, use /auth/google-sign-up endpoint
+            console.log('Using Google Sign-Up endpoint for signup');
+            backendResponse = await ApiService.makeRequest('/auth/google-sign-up', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL,
+                emailVerified: user.emailVerified,
+                id_token: user.accessToken, // Include ID token if available
+              }),
+            });
+            console.log('Google Sign-Up backend response:', backendResponse);
+          }
+
+          if (backendResponse) {
+            console.log('Backend Google auth response:', backendResponse);
+            
+            // Store auth token if provided
+            if (backendResponse.access_token || backendResponse.token) {
+              localStorage.setItem('authToken', backendResponse.access_token || backendResponse.token);
+            }
+            
+            // Store user data if provided
+            if (backendResponse.user) {
+              localStorage.setItem('userData', JSON.stringify(backendResponse.user));
+            }
+          }
+        } catch (backendError) {
+          console.error('Backend Google authentication failed:', backendError);
+          
+          // Show user-friendly error message
+          if (backendError.message.includes('Network error')) {
+            console.error('Network issue with backend authentication');
+          } else if (backendError.message.includes('401') || backendError.message.includes('Unauthorized')) {
+            console.error('Google authentication failed on backend - invalid credentials');
+          } else {
+            console.error('Backend request failed:', backendError.message);
+          }
+          
+          // You might want to show this error to the user or continue anyway
+          // For now, we'll continue since Firebase auth succeeded
+        }
+        
+        // Always redirect on successful Firebase auth
+        if (onLogin) {
+          onLogin();
+        }
+        navigate('/dashboard');
       }
-      navigate('/dashboard');
+      // If user is null (cancelled or failed), do nothing - error already handled in store
+    } catch (error) {
+      console.error('Google sign-in process failed:', error);
+      // Error handling is already done in the useAuthStore
     }
-    // If user is null (cancelled or failed), do nothing - error already handled in store
   };
 
   return (
@@ -199,7 +247,6 @@ const Login = ({ onLogin }) => {
                         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                       />
                     </svg>
-                    
                   </>
                 )}
               </button>

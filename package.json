@@ -12,6 +12,7 @@
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
     "@tailwindcss/vite": "^4.1.7",
+    "@uploadthing/react": "^7.3.1",
     "firebase": "^11.8.1",
     "framer-motion": "^12.11.4",
     "lucide-react": "^0.510.0",
@@ -19,6 +20,7 @@
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.0",
     "tailwindcss": "^4.1.7",
+    "uploadthing": "^7.7.2",
     "zustand": "^5.0.5"
   },
   "devDependencies": {
