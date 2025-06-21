@@ -9,7 +9,8 @@ services:
     rootDir: backend
 
 staticSites:
-  - name: react-vite-frontend
+  - type: static_site
+    name: react-vite-frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     plan: free
