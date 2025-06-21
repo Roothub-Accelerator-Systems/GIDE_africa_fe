@@ -30,21 +30,27 @@ export const useAuthStore = create((set, get) => ({
     try {
       set({ loading: true })
       await signOut(auth)
-      // Don't set user to null here - let onAuthStateChanged handle it
-      set({ loading: false })
+      // Immediately clear the user state for faster UI update
+      set({ firebase_user: null, loading: false })
     } catch (error) {
-      set({ error: error.message, loading: false })
+      // Even if logout fails, clear the user state
+      set({ firebase_user: null, error: error.message, loading: false })
     }
   },
-  
+
+  // Manual clear user function - this is what was missing!
+  clearUser: () => {
+    set({ firebase_user: null, loading: false, error: null })
+  },
+
   setUser: (firebase_user) => set({ firebase_user, loading: false }),
-  
+
   // Add the missing clearError function
   clearError: () => set({ error: null }),
-  
+
   // Add a function to set error manually if needed
   setError: (error) => set({ error }),
-  
+
   isVerified: () => {
     const user = get().firebase_user
     return user ? user.emailVerified : false
@@ -53,11 +59,11 @@ export const useAuthStore = create((set, get) => ({
   // Initialize auth state listener
   initializeAuth: () => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log('Auth state changed:') // Debug log
+      console.log('Auth state changed:', user) // Debug log
       set({ 
-        firebase_user: user, 
+        firebase_user: user,
         loading: false,
-        error: null 
+        error: null
       })
     })
     return unsubscribe
@@ -71,6 +77,31 @@ export const useAuthStore = create((set, get) => ({
   // Check if user is authenticated
   isAuthenticated: () => {
     return !!get().firebase_user
+  },
+
+  // Complete logout that clears everything
+  completeLogout: async () => {
+    try {
+      set({ loading: true })
+      
+      // Sign out from Firebase
+      await signOut(auth)
+      
+      // Clear user state immediately
+      set({ firebase_user: null, loading: false, error: null })
+      
+      // Clear localStorage
+      localStorage.removeItem('userData')
+      localStorage.removeItem('authToken')
+      
+      console.log('Complete logout successful')
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Even if Firebase logout fails, clear local state
+      set({ firebase_user: null, loading: false, error: null })
+      localStorage.removeItem('userData')
+      localStorage.removeItem('authToken')
+    }
   }
 }))
 

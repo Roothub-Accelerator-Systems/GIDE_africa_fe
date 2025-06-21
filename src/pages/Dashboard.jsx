@@ -18,6 +18,7 @@ import {
 import Navbar from '../components/Shared/Navbar';
 import Sidebar from '../components/Shared/Sidebar';
 import ApiService from '../components/Auth/ApiService';
+import { useAuthStore } from '../components/Auth/useAuthStore';
 
 const Dashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -27,7 +28,10 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
+
+  const { firebase_user } = useAuthStore();
 
   // Mock data for resumes
   const resumes = [
@@ -69,44 +73,226 @@ const Dashboard = () => {
     navigate('/cover-letter');
   };
 
-  // Load user data from backend on component mount
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        console.log('Fetching user data from backend...');
-        const user = await ApiService.getCurrentUser();
-        console.log('Received user data');
-        
-        setUserData({
-          fullName: user.username || user.full_name || user.name || user.fullName || '',
-          email: user.email || '',
-        });
+// Replace the entire fetchUserData function in Dashboard with this:
 
-        // Check if this is a first-time user based on various indicators
-        // You can modify this logic based on your backend data structure
-        const isNewUser = user.is_new_user || user.first_login || user.created_recently || false;
-        setIsFirstTimeUser(isNewUser);
-        
-      } catch (error) {
-        console.error('Failed to fetch user data:', error);
-        console.error('Error details:', error.message);
-        
-        // If token is invalid or user is not authenticated, redirect to login
-        if (error.message.includes('401') || 
-            error.message.includes('unauthorized') || 
-            error.message.includes('Unauthorized') ||
-            error.message.includes('authentication')) {
-          console.log('Authentication failed, redirecting to login');
-          localStorage.removeItem('authToken');
-          navigate('/login');
+useEffect(() => {
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current authentication states
+      const hasFirebaseUser = !!firebase_user;
+      const hasBackendAuth = ApiService.isAuthenticated();
+      const hasValidToken = hasBackendAuth && !ApiService.isTokenExpired(ApiService.getAccessToken());
+      
+      // Check for recent authentication activity to determine the active method
+      const lastAuthMethod = localStorage.getItem('lastAuthMethod'); // 'google' or 'jwt'
+      const authTimestamp = localStorage.getItem('authTimestamp');
+      const currentTime = Date.now();
+      const isRecentAuth = authTimestamp && (currentTime - parseInt(authTimestamp)) < 1000; // 1 second threshold
+      
+      console.log('Auth state analysis:', {
+        hasFirebaseUser,
+        hasBackendAuth,
+        hasValidToken,
+        lastAuthMethod,
+        isRecentAuth,
+        firebaseUserEmail: firebase_user?.email,
+        tokenExists: !!ApiService.getAccessToken()
+      });
+      
+      // Determine the active authentication method
+      let activeAuthMethod = null;
+      
+      // If we have recent auth activity, use that method
+      if (isRecentAuth && lastAuthMethod) {
+        activeAuthMethod = lastAuthMethod;
+        console.log(`Using recent auth method: ${activeAuthMethod}`);
+      }
+      // If no recent activity, determine based on current state
+      else {
+        // If both exist, we need to determine which one is actually active
+        if (hasFirebaseUser && hasValidToken) {
+          console.log('Both auth methods detected - need to determine active one');
+          
+          // Check if JWT token was created recently (more recent than Firebase session)
+          const token = ApiService.getAccessToken();
+          if (token) {
+            try {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              const tokenIssuedAt = payload.iat * 1000; // Convert to milliseconds
+              const firebaseLastSignIn = firebase_user.metadata?.lastSignInTime;
+              
+              if (firebaseLastSignIn) {
+                const firebaseTime = new Date(firebaseLastSignIn).getTime();
+                activeAuthMethod = tokenIssuedAt > firebaseTime ? 'jwt' : 'google';
+                console.log(`Determined active method by timestamp: ${activeAuthMethod}`);
+              } else {
+                // Fallback to JWT if we can't determine Firebase time
+                activeAuthMethod = 'jwt';
+              }
+            } catch {
+              activeAuthMethod = hasFirebaseUser ? 'google' : 'jwt';
+            }
+          } else {
+            activeAuthMethod = 'google';
+          }
         }
-      } finally {
-        setLoading(false);
+        // Only one method is active
+        else if (hasFirebaseUser) {
+          activeAuthMethod = 'google';
+        }
+        else if (hasValidToken) {
+          activeAuthMethod = 'jwt';
+        }
+        else {
+          activeAuthMethod = null;
+        }
+      }
+      
+      // Apply the authentication method
+      switch (activeAuthMethod) {
+        case 'google':
+          if (hasFirebaseUser && firebase_user) {
+            console.log('Using Google/Firebase authentication');
+            setUserData({
+              fullName: firebase_user.displayName || firebase_user.email?.split('@')[0] || '',
+              email: firebase_user.email || '',
+            });
+            // For Firebase users, assume they're not first-time if they have displayName
+            setIsFirstTimeUser(!firebase_user.displayName);
+          } else {
+            console.log('Google method selected but no Firebase user found');
+            setUserData({ fullName: '', email: '' });
+          }
+          break;
+          
+        case 'jwt':
+          if (hasValidToken) {
+            console.log('Using JWT/Backend authentication');
+            
+            try {
+              // Try backend API first
+              const user = await ApiService.getCurrentUser();
+              console.log('Backend user data:', user);
+              
+              setUserData({
+                fullName: user.username || user.full_name || user.name || user.fullName || user.displayName || user.email?.split('@')[0] || '',
+                email: user.email || '',
+              });
+
+              const isNewUser = user.is_new_user || user.first_login || user.created_recently || false;
+              setIsFirstTimeUser(isNewUser);
+            } catch {
+              console.log('Backend API failed, decoding JWT token');
+              
+              // Fallback to JWT token decoding
+              const token = ApiService.getAccessToken();
+              try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                console.log('JWT payload data:', payload);
+                
+                setUserData({
+                  fullName: payload.username || payload.full_name || payload.name || payload.email?.split('@')[0] || '',
+                  email: payload.email || payload.sub || '',
+                });
+              } catch (tokenError) {
+                console.error('Failed to decode JWT token:', tokenError);
+                setUserData({ fullName: '', email: '' });
+              }
+            }
+          } else {
+            console.log('JWT method selected but no valid token found');
+            setUserData({ fullName: '', email: '' });
+          }
+          break;
+          
+        default:
+          console.log('No active authentication method found');
+          setUserData({ fullName: '', email: '' });
+          
+          // Clean up if we have invalid auth states
+          if (hasBackendAuth && !hasValidToken) {
+            console.log('Cleaning up invalid JWT token');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('userData');
+            localStorage.removeItem('lastAuthMethod');
+            localStorage.removeItem('authTimestamp');
+            navigate('/login');
+          }
+          break;
+      }
+      
+    } catch (authError) {
+      console.error('Authentication error:', authError);
+      
+      setUserData({ fullName: '', email: '' });
+      
+      if (authError.message.includes('401') || authError.message.includes('unauthorized')) {
+        console.log('Unauthorized - clearing all auth data');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('userData');
+        localStorage.removeItem('lastAuthMethod');
+        localStorage.removeItem('authTimestamp');
+        navigate('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchUserData();
+}, [navigate, firebase_user]);
+
+  // Clear user data when firebase_user becomes null (logout)
+  useEffect(() => {
+    if (firebase_user === null && !loading) {
+      console.log('Firebase user is null, clearing dashboard user data');
+      setIsLoggingOut(true);
+      
+      // Clear user data immediately
+      setUserData({
+        fullName: '',
+        email: '',
+      });
+      
+      // Clear any additional state
+      setIsFirstTimeUser(false);
+      
+      // Small delay to show logout state, then redirect
+      setTimeout(() => {
+        navigate('/login');
+      }, 500);
+    }
+  }, [firebase_user, loading, navigate]);
+
+  // Monitor auth token changes
+  useEffect(() => {
+    const checkAuthStatus = () => {
+      const token = localStorage.getItem('authToken');
+      // const storedUserData = localStorage.getItem('userData');
+      
+      // If no token and no firebase user, redirect to login
+      if (!token && !firebase_user && !loading) {
+        console.log('No auth token or firebase user, redirecting to login');
+        navigate('/login');
       }
     };
 
-    fetchUserData();
-  }, [navigate]);
+    // Check immediately
+    checkAuthStatus();
+
+    // Set up periodic check
+    const authCheckInterval = setInterval(checkAuthStatus, 5000);
+
+    return () => {
+      clearInterval(authCheckInterval);
+    };
+  }, [firebase_user, loading, navigate]);
 
   // Get first name from full name
   const getFirstName = () => {
@@ -120,11 +306,17 @@ const Dashboard = () => {
   // Get welcome message based on user status
   const getWelcomeMessage = () => {
     const firstName = getFirstName();
+    if (isLoggingOut) {
+      return `Logging out...`;
+    }
     return isFirstTimeUser ? `Welcome, ${firstName}!` : `Welcome back, ${firstName}!`;
   };
 
   // Get welcome description based on user status
   const getWelcomeDescription = () => {
+    if (isLoggingOut) {
+      return "Please wait while we log you out safely";
+    }
     return isFirstTimeUser 
       ? "Let's get started with creating your first professional resume"
       : "Here's a summary of your resume activities";
@@ -164,6 +356,80 @@ const Dashboard = () => {
                   <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div>
                   <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                 </div>
+              </div>
+              
+              {/* Loading skeleton for stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+                    <div className="animate-pulse flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Show logout state
+  if (isLoggingOut) {
+    return (
+      <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+                <div className="flex items-center justify-center space-x-3">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {getWelcomeMessage()}
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-300 mt-1">
+                      {getWelcomeDescription()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // If no user data and not loading, don't render main content
+  if (!userData.fullName && !userData.email && !loading) {
+    return (
+      <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow p-6 text-center">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Authentication Required
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  Please log in to access your dashboard
+                </p>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                >
+                  Go to Login
+                </button>
               </div>
             </div>
           </main>
@@ -362,7 +628,7 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    {/* Applications badge for desktop (moved outside the conditional) */}
+                    {/* Applications badge for desktop */}
                     <div className="hidden md:block mt-3 pl-12">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                         {resume.jobApplications} Applications

@@ -9,6 +9,7 @@ import ApiService from '../components/Auth/ApiService'; // Adjust the import pat
 const Login = ({ onLogin }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  // const [authMethod, setAuthMethod] = useState(null);
   const { signInWithGoogle, loading, error, clearError, } = useAuthStore();
   
   const isLoginPath = location.pathname === '/login';
@@ -24,7 +25,7 @@ const Login = ({ onLogin }) => {
   //   }
   // }, [firebase_user, loading, navigate, onLogin]);
   
-  const handleSubmit = () => {
+  const handleSubmits = () => {
     console.log('Authentication Approved');
     
     // Clear any previous errors
@@ -42,95 +43,114 @@ const Login = ({ onLogin }) => {
     navigate('/');
   };
 
-  const handleGoogleSignIn = async () => {
-    try {
-      // First, authenticate with Firebase/Google
-      const user = await signInWithGoogle();
-      
-      if (user) {
-        try {
-          let backendResponse;
-          
-          // Use different endpoints based on the current path
-          if (isLoginPath) {
-            // For login page, use /auth/google-sign-in endpoint
-            console.log('Using Google Sign-In endpoint for login');
-            backendResponse = await ApiService.makeRequest('/auth/google-sign-in', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
-                photoURL: user.photoURL,
-                emailVerified: user.emailVerified,
-                id_token: user.accessToken, // Include ID token if available
-              }),
-            });
-            console.log('Google Sign-Up backend response:', backendResponse);
-          } else {
-            // For signup page, use /auth/google-sign-up endpoint
-            console.log('Using Google Sign-Up endpoint for signup');
-            backendResponse = await ApiService.makeRequest('/auth/google-sign-up', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
-                photoURL: user.photoURL,
-                emailVerified: user.emailVerified,
-                id_token: user.accessToken, // Include ID token if available
-              }),
-            });
-            console.log('Google Sign-Up backend response:', backendResponse);
-          }
+  // Add this function to your Login component (paste.txt - second file)
 
-          if (backendResponse) {
-            console.log('Backend Google auth response:', backendResponse);
-            
-            // Store auth token if provided
-            if (backendResponse.access_token || backendResponse.token) {
-              localStorage.setItem('authToken', backendResponse.access_token || backendResponse.token);
-            }
-            
-            // Store user data if provided
-            if (backendResponse.user) {
-              localStorage.setItem('userData', JSON.stringify(backendResponse.user));
-            }
-          }
-        } catch (backendError) {
-          console.error('Backend Google authentication failed:', backendError);
-          
-          // Show user-friendly error message
-          if (backendError.message.includes('Network error')) {
-            console.error('Network issue with backend authentication');
-          } else if (backendError.message.includes('401') || backendError.message.includes('Unauthorized')) {
-            console.error('Google authentication failed on backend - invalid credentials');
-          } else {
-            console.error('Backend request failed:', backendError.message);
-          }
-          
-          // You might want to show this error to the user or continue anyway
-          // For now, we'll continue since Firebase auth succeeded
-        }
+// Helper function to set authentication method - ADD THIS TO YOUR LOGIN COMPONENT
+const setAuthMethod = (method) => {
+  localStorage.setItem('lastAuthMethod', method);
+  localStorage.setItem('authTimestamp', Date.now().toString());
+};
+
+// Updated handleSubmit for traditional login (JWT)
+const handleSubmit = () => {
+  console.log('JWT Authentication Approved');
+  
+  // Clear any previous errors
+  clearError();
+  
+  // Set authentication method to JWT
+  setAuthMethod('jwt');
+  
+  // Mock successful authentication
+  onLogin();
+  
+  // Redirect to dashboard
+  navigate('/dashboard');
+};
+
+// Updated handleGoogleSignIn
+const handleGoogleSignIn = async () => {
+  try {
+    // Clear any existing auth method tracking
+    localStorage.removeItem('lastAuthMethod');
+    localStorage.removeItem('authTimestamp');
+    
+    // First, authenticate with Firebase/Google
+    const user = await signInWithGoogle();
+    
+    if (user) {
+      // Set authentication method to Google IMMEDIATELY after successful Firebase auth
+      setAuthMethod('google');
+      
+      try {
+        let backendResponse;
         
-        // Always redirect on successful Firebase auth
-        if (onLogin) {
-          onLogin();
+        // Use different endpoints based on the current path
+        if (isLoginPath) {
+          console.log('Using Google Sign-In endpoint for login');
+          backendResponse = await ApiService.makeRequest('/auth/google-sign-in', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+              emailVerified: user.emailVerified,
+              id_token: user.accessToken,
+            }),
+          });
+        } else {
+          console.log('Using Google Sign-Up endpoint for signup');
+          backendResponse = await ApiService.makeRequest('/auth/google-sign-up', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+              emailVerified: user.emailVerified,
+              id_token: user.accessToken,
+            }),
+          });
         }
-        navigate('/dashboard');
+
+        if (backendResponse) {
+          console.log('Backend Google auth response:', backendResponse);
+          
+          // Store auth token if provided, but don't change the auth method
+          if (backendResponse.access_token || backendResponse.token) {
+            localStorage.setItem('authToken', backendResponse.access_token || backendResponse.token);
+          }
+          
+          // Store user data if provided
+          if (backendResponse.user) {
+            localStorage.setItem('userData', JSON.stringify(backendResponse.user));
+          }
+        }
+      } catch (backendError) {
+        console.error('Backend Google authentication failed:', backendError);
+        // Continue with Google auth even if backend fails
       }
-      // If user is null (cancelled or failed), do nothing - error already handled in store
-    } catch (error) {
-      console.error('Google sign-in process failed:', error);
-      // Error handling is already done in the useAuthStore
+      
+      // Always redirect on successful Firebase auth
+      if (onLogin) {
+        onLogin();
+      }
+      navigate('/dashboard');
     }
-  };
+  } catch (error) {
+    console.error('Google sign-in process failed:', error);
+    // Remove the auth method if Google sign-in failed
+    localStorage.removeItem('lastAuthMethod');
+    localStorage.removeItem('authTimestamp');
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200 relative">
@@ -176,7 +196,8 @@ const Login = ({ onLogin }) => {
         
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 transition-colors duration-200">
           {isLoginPath ? (
-            <LoginForm onSubmit={handleSubmit} />
+            <LoginForm onSubmit={handleSubmit} setAuthMethod={setAuthMethod}
+/>
           ) : (
             <SignupForm onSubmit={handleSubmit} />
           )}

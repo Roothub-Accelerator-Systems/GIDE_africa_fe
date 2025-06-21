@@ -95,13 +95,6 @@ const LoginForm = ({ onSubmit }) => {
     setShowSuccessMessage(false);
     
     try {
-      // Clear any existing tokens before login
-      console.log('Clearing existing tokens before login...');
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
-      
       console.log('Attempting login with:', { email: formData.email, password: '[HIDDEN]' });
       
       // Use ApiService for login
@@ -112,16 +105,12 @@ const LoginForm = ({ onSubmit }) => {
       
       console.log("Full login response:", response);
       
-      // The ApiService.login method should handle token storage internally
-      // But let's also check what we got back
       const userData = response.data || response;
-      const accessToken = userData.access_token || response.access_token;
       
-      if (accessToken) {
-        console.log('Login successful - token received and stored by ApiService');
+      if (response) {
+        console.log('Login successful');
         
-        // Don't store duplicate tokens - ApiService already handles this
-        // Just store user data if needed
+        // Store user data if needed
         if (userData.user) {
           localStorage.setItem('userData', JSON.stringify(userData.user));
           console.log('User data stored:', userData.user);
@@ -131,7 +120,6 @@ const LoginForm = ({ onSubmit }) => {
         if (onSubmit) {
           onSubmit({ 
             ...formData, 
-            authToken: accessToken,
             user: userData.user 
           });
         }
@@ -139,8 +127,8 @@ const LoginForm = ({ onSubmit }) => {
         console.log("Login completed successfully");
         
       } else {
-        console.error('No access token received in response:', response);
-        throw new Error('Login failed: No access token received');
+        console.error('No response received:', response);
+        throw new Error('Login failed: No response received');
       }
       
     } catch (error) {
