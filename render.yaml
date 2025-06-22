@@ -1,18 +1,21 @@
+# Corrected Render Blueprint configuration
 services:
+  # Backend Python service
   - type: web
     name: backend-service
-    env: python
+    runtime: python  # Use 'runtime' instead of 'env'
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port 8001
     plan: free
     branch: main
     rootDir: backend
 
-staticSites:
-  - type: static_site
+  # Frontend static site
+  - type: web
     name: react-vite-frontend
+    runtime: static  # Required for static sites
     buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    staticPublishPath: dist  # Required for static sites
     plan: free
     branch: main
     rootDir: .
