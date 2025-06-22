@@ -6,7 +6,7 @@ services:
     runtime: python  # Use 'runtime' instead of 'env'
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port 8001
-    plan: free
+    plan: starter  # Changed from 'free' to 'starter'
     branch: main
     rootDir: backend
 
@@ -16,7 +16,7 @@ services:
     runtime: static  # Required for static sites
     buildCommand: npm install && npm run build
     staticPublishPath: dist  # Required for static sites
-    plan: free
+    # No plan specified - static sites can use free hosting
     branch: main
     rootDir: .
     envVars:
