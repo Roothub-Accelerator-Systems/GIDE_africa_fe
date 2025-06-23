@@ -279,7 +279,7 @@ useEffect(() => {
       // If no token and no firebase user, redirect to login
       if (!token && !firebase_user && !loading) {
         console.log('No auth token or firebase user, redirecting to login');
-        navigate('/login');
+        // navigate('/login');
       }
     };
 
