@@ -35,6 +35,8 @@ const Navbar = ({ toggleSidebar }) => {
   }, []);
 
 // Fixed fetchUserData function - Proper Authentication Method Detection
+// Replace the problematic section in your useEffect with this improved logic:
+
 useEffect(() => {
   const fetchUserData = async () => {
     try {
@@ -49,7 +51,7 @@ useEffect(() => {
       const lastAuthMethod = localStorage.getItem('lastAuthMethod'); // 'google' or 'jwt'
       const authTimestamp = localStorage.getItem('authTimestamp');
       const currentTime = Date.now();
-      const isRecentAuth = authTimestamp && (currentTime - parseInt(authTimestamp)) < 1000; // 1 second threshold
+      const isRecentAuth = authTimestamp && (currentTime - parseInt(authTimestamp)) < 5000; // 5 second threshold (increased)
       
       console.log('Auth state analysis:', {
         hasFirebaseUser,
@@ -61,52 +63,41 @@ useEffect(() => {
         tokenExists: !!ApiService.getAccessToken()
       });
       
-      // Determine the active authentication method
+      // Determine the active authentication method with improved logic
       let activeAuthMethod = null;
       
-      // If we have recent auth activity, use that method
+      // Priority 1: If we have recent auth activity (within 5 seconds), use that method
       if (isRecentAuth && lastAuthMethod) {
-        activeAuthMethod = lastAuthMethod;
-        console.log(`Using recent auth method: ${activeAuthMethod}`);
-      }
-      // If no recent activity, determine based on current state
-      else {
-        // If both exist, we need to determine which one is actually active
-        if (hasFirebaseUser && hasValidToken) {
-          console.log('Both auth methods detected - need to determine active one');
-          
-          // Check if JWT token was created recently (more recent than Firebase session)
-          const token = ApiService.getCurrentUser();
-          if (token) {
-            try {
-              const payload = JSON.parse(atob(token.split('.')[1]));
-              const tokenIssuedAt = payload.iat * 1000; // Convert to milliseconds
-              const firebaseLastSignIn = firebase_user.metadata?.lastSignInTime;
-              
-              if (firebaseLastSignIn) {
-                const firebaseTime = new Date(firebaseLastSignIn).getTime();
-                activeAuthMethod = tokenIssuedAt > firebaseTime ? 'jwt' : 'google';
-                console.log(`Determined active method by timestamp: ${activeAuthMethod}`);
-              } else {
-                // Fallback to JWT if we can't determine Firebase time
-                activeAuthMethod = 'jwt';
-              }
-            } catch {
-              activeAuthMethod = hasFirebaseUser ? 'google' : 'jwt';
-            }
-          } else {
-            activeAuthMethod = 'jwt';
-          }
-        }
-        // Only one method is active
-        else if (hasFirebaseUser) {
+        if (lastAuthMethod === 'google' && hasFirebaseUser) {
           activeAuthMethod = 'google';
+          console.log(`Using recent Google auth method`);
+        } else if (lastAuthMethod === 'jwt' && hasValidToken) {
+          activeAuthMethod = 'jwt';
+          console.log(`Using recent JWT auth method`);
         }
-        else if (hasValidToken) {
+      }
+      
+      // Priority 2: If no recent activity or recent auth method is invalid, determine based on current state
+      if (!activeAuthMethod) {
+        // Both methods are valid - prefer JWT over Firebase to avoid the timestamp comparison issue
+        if (hasFirebaseUser && hasValidToken) {
+          console.log('Both auth methods detected - preferring JWT as primary');
           activeAuthMethod = 'jwt';
         }
+        // Only Firebase is valid
+        else if (hasFirebaseUser && !hasValidToken) {
+          activeAuthMethod = 'google';
+          console.log('Only Firebase auth is valid');
+        }
+        // Only JWT is valid
+        else if (!hasFirebaseUser && hasValidToken) {
+          activeAuthMethod = 'jwt';
+          console.log('Only JWT auth is valid');
+        }
+        // No valid authentication
         else {
           activeAuthMethod = null;
+          console.log('No valid authentication found');
         }
       }
       
@@ -138,8 +129,8 @@ useEffect(() => {
                 fullName: user.username || user.full_name || user.name || user.fullName || user.displayName || user.email?.split('@')[0] || '',
                 email: user.email || '',
               });
-            } catch  {
-              console.log('Backend API failed, decoding JWT token');
+            } catch (apiError) {
+              console.log('Backend API failed, decoding JWT token:', apiError);
               
               // Fallback to JWT token decoding
               const token = ApiService.getAccessToken();
@@ -175,7 +166,6 @@ useEffect(() => {
             localStorage.removeItem('userData');
             localStorage.removeItem('lastAuthMethod');
             localStorage.removeItem('authTimestamp');
-            // navigate('/login');
           }
           break;
       }
