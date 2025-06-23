@@ -259,10 +259,10 @@ const handleLogoutConfirmation = async (confirmed) => {
 }; // Add firebase_user as dependency
 
   // Navigation handlers
-  const navigateToProfile = () => {
-    setUserMenuOpen(false);
-    navigate("/profile");
-  };
+  // const navigateToProfile = () => {
+  //   setUserMenuOpen(false);
+  //   navigate("/profile");
+  // };
 
   const navigateToSettings = () => {
     setUserMenuOpen(false);
@@ -344,7 +344,7 @@ const handleLogoutConfirmation = async (confirmed) => {
               >
                 <Menu size={20} />
               </button>
-              <div className="flex items-center ml-3 md:ml-0">
+              <div className="flex items-center ml-3 md:ml-2">
                 <span className="font-bold text-xl md:text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   AI Resume Builder
                 </span>
@@ -409,13 +409,13 @@ const handleLogoutConfirmation = async (confirmed) => {
                       {userData?.email || "Loading..."}
                     </p>
                   </div>
-                  <button 
+                  {/* <button 
                     onClick={navigateToProfile}
                     className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
                   >
                     <User size={16} className="mr-3 text-gray-500 dark:text-gray-400" />
                     Profile
-                  </button>
+                  </button> */}
                   <button 
                     onClick={navigateToSettings}
                     className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
