@@ -175,7 +175,7 @@ useEffect(() => {
             localStorage.removeItem('userData');
             localStorage.removeItem('lastAuthMethod');
             localStorage.removeItem('authTimestamp');
-            navigate('/login');
+            // navigate('/login');
           }
           break;
       }
