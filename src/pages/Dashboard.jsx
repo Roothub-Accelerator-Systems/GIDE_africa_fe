@@ -79,171 +79,60 @@ const Dashboard = () => {
 
 // Replace the fetchUserData useEffect in Dashboard.jsx with this optimized version:
 
+// Replace the complex fetchUserData useEffect in Dashboard.jsx (around lines 60-200) with this simpler version:
+
 useEffect(() => {
   const fetchUserData = async () => {
     try {
       setLoading(true);
       
-      // Get current authentication states
+      // Check Firebase authentication
       const hasFirebaseUser = !!firebase_user;
-      const hasBackendAuth = ApiService.isAuthenticated();
-      const hasValidToken = hasBackendAuth && !ApiService.isTokenExpired(ApiService.getAccessToken());
       
-      // Check for recent authentication activity to determine the active method
-      const lastAuthMethod = localStorage.getItem('lastAuthMethod');
-      const authTimestamp = localStorage.getItem('authTimestamp');
-      const currentTime = Date.now();
-      const isRecentAuth = authTimestamp && (currentTime - parseInt(authTimestamp)) < 1000;
-      
-      console.log('Auth state analysis:', {
-        hasFirebaseUser,
-        hasBackendAuth,
-        hasValidToken,
-        lastAuthMethod,
-        isRecentAuth,
-        firebaseUserEmail: firebase_user?.email,
-        tokenExists: !!ApiService.getAccessToken()
-      });
-      
-      // Early exit if no authentication methods available
-      if (!hasFirebaseUser && !hasValidToken) {
-        console.log('No valid authentication found');
-        setUserData({ fullName: '', email: '' });
-        setLoading(false); // Important: Set loading to false
-        return;
-      }
-      
-      // Determine the active authentication method
-      let activeAuthMethod = null;
-      
-      if (isRecentAuth && lastAuthMethod) {
-        activeAuthMethod = lastAuthMethod;
-        console.log(`Using recent auth method: ${activeAuthMethod}`);
+      if (hasFirebaseUser && firebase_user) {
+        console.log('Using Google/Firebase authentication');
+        setUserData({
+          fullName: firebase_user.displayName || firebase_user.email?.split('@')[0] || '',
+          email: firebase_user.email || '',
+          authMethod: 'google'
+        });
+        setIsFirstTimeUser(!firebase_user.displayName);
       } else {
-        if (hasFirebaseUser && hasValidToken) {
-          console.log('Both auth methods detected - need to determine active one');
+        // Check JWT authentication using server endpoint
+        const authStatus = await ApiService.getAuthStatus();
+        
+        if (authStatus.authenticated) {
+          console.log('Using JWT authentication with server validation');
+          console.log('Auth status:', authStatus);
           
-          const token = ApiService.getAccessToken();
-          if (token) {
-            try {
-              const payload = JSON.parse(atob(token.split('.')[1]));
-              const tokenIssuedAt = payload.iat * 1000;
-              const firebaseLastSignIn = firebase_user.metadata?.lastSignInTime;
-              
-              if (firebaseLastSignIn) {
-                const firebaseTime = new Date(firebaseLastSignIn).getTime();
-                activeAuthMethod = tokenIssuedAt > firebaseTime ? 'jwt' : 'google';
-                console.log(`Determined active method by timestamp: ${activeAuthMethod}`);
-              } else {
-                activeAuthMethod = 'jwt';
-              }
-            } catch {
-              activeAuthMethod = hasFirebaseUser ? 'google' : 'jwt';
-            }
-          } else {
-            activeAuthMethod = 'google';
-          }
-        } else if (hasFirebaseUser) {
-          activeAuthMethod = 'google';
-        } else if (hasValidToken) {
-          activeAuthMethod = 'jwt';
+          setUserData({
+            fullName: authStatus.user.username || authStatus.user.full_name || 
+                     authStatus.user.email?.split('@')[0] || '',
+            email: authStatus.user.email || '',
+            authMethod: 'jwt',
+            userId: authStatus.user.id,
+            lastLogin: authStatus.token.last_login,
+            tokenExpiresAt: authStatus.token.expires_at
+          });
+          
+          const isNewUser = authStatus.user.is_new_user || authStatus.user.first_login || authStatus.user.created_recently || false;
+          setIsFirstTimeUser(isNewUser);
+        } else {
+          console.log('No valid authentication found:', authStatus.reason);
+          setUserData({ fullName: '', email: '', authMethod: null });
         }
       }
       
-      // Apply the authentication method
-      switch (activeAuthMethod) {
-        case 'google':
-          if (hasFirebaseUser && firebase_user) {
-            console.log('Using Google/Firebase authentication');
-            setUserData({
-              fullName: firebase_user.displayName || firebase_user.email?.split('@')[0] || '',
-              email: firebase_user.email || '',
-            });
-            setIsFirstTimeUser(!firebase_user.displayName);
-          } else {
-            console.log('Google method selected but no Firebase user found');
-            setUserData({ fullName: '', email: '' });
-          }
-          break;
-          
-        case 'jwt':
-          if (hasValidToken) {
-            console.log('Using JWT/Backend authentication');
-            
-            try {
-              const user = await ApiService.getCurrentUser();
-              console.log('Backend user data:', user);
-              
-              setUserData({
-                fullName: user.username || user.full_name || user.name || user.fullName || user.displayName || user.email?.split('@')[0] || '',
-                email: user.email || '',
-              });
-
-              const isNewUser = user.is_new_user || user.first_login || user.created_recently || false;
-              setIsFirstTimeUser(isNewUser);
-            } catch {
-              console.log('Backend API failed, decoding JWT token');
-              
-              const token = ApiService.getAccessToken();
-              try {
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                console.log('JWT payload data:', payload);
-                
-                setUserData({
-                  fullName: payload.username || payload.full_name || payload.name || payload.email?.split('@')[0] || '',
-                  email: payload.email || payload.sub || '',
-                });
-              } catch (tokenError) {
-                console.error('Failed to decode JWT token:', tokenError);
-                setUserData({ fullName: '', email: '' });
-              }
-            }
-          } else {
-            console.log('JWT method selected but no valid token found');
-            setUserData({ fullName: '', email: '' });
-          }
-          break;
-          
-        default:
-          console.log('No active authentication method found');
-          setUserData({ fullName: '', email: '' });
-          
-          if (hasBackendAuth && !hasValidToken) {
-            console.log('Cleaning up invalid JWT token');
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('userData');
-            localStorage.removeItem('lastAuthMethod');
-            localStorage.removeItem('authTimestamp');
-          }
-          break;
-      }
-      
-    } catch (authError) {
-      console.error('Authentication error:', authError);
-      setUserData({ fullName: '', email: '' });
-      
-      if (authError.message.includes('401') || authError.message.includes('unauthorized')) {
-        console.log('Unauthorized - clearing all auth data');
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('userData');
-        localStorage.removeItem('lastAuthMethod');
-        localStorage.removeItem('authTimestamp');
-      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      setUserData({ fullName: '', email: '', authMethod: null });
     } finally {
-      // Always set loading to false when done
       setLoading(false);
     }
   };
 
-  // Only fetch if we have some form of authentication or if firebase_user changes
-  if (firebase_user !== undefined) { // undefined means still loading Firebase auth
-    fetchUserData();
-  }
-}, [navigate, firebase_user]);
+  fetchUserData();
+}, [firebase_user]);
 
 // Updated auth monitoring useEffect:
 useEffect(() => {

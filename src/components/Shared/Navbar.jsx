@@ -4,7 +4,7 @@ import { Menu, User, Settings, LogOut } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import LogoutConfirmation from "./LogoutConfirmation";
 import ApiService from "../Auth/ApiService";
-import { useAuthStore } from "../Auth/useAuthStore"; // Import the auth store
+import { useAuthStore } from "../Auth/useAuthStore";
 
 const Navbar = ({ toggleSidebar }) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -34,31 +34,23 @@ const Navbar = ({ toggleSidebar }) => {
     };
   }, []);
 
-// Fixed fetchUserData function - Proper Authentication Method Detection
-// Replace the complex authentication logic with this simpler approach
-useEffect(() => {
-  const fetchUserData = async () => {
-    try {
-      setLoading(true);
-      
-      // Check Firebase authentication
-      const hasFirebaseUser = !!firebase_user;
-      
-      if (hasFirebaseUser && firebase_user) {
-        console.log('Using Google/Firebase authentication');
-        setUserData({
-          fullName: firebase_user.displayName || firebase_user.email?.split('@')[0] || '',
-          email: firebase_user.email || '',
-          authMethod: 'google'
-        });
-      } else {
-        // Check JWT authentication using server endpoint
-        const authStatus = await ApiService.getAuthStatus();
+  // FIXED: Better authentication method detection with proper priority
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
         
-        if (authStatus.authenticated) {
-          console.log('Using JWT authentication with server validation');
-          console.log('Auth status:', authStatus);
-          
+        // Get the last used authentication method
+        const lastAuthMethod = localStorage.getItem('lastAuthMethod');
+        console.log('Last auth method:', lastAuthMethod);
+        
+        // Priority 1: Check for explicit JWT authentication first
+        // This prevents Firebase from overriding JWT logins
+        const authStatus = await ApiService.getAuthStatus();
+        console.log('JWT Auth status:', authStatus);
+        
+        if (authStatus.authenticated && authStatus.method === 'jwt') {
+          console.log('Using JWT authentication');
           setUserData({
             fullName: authStatus.user.username || authStatus.user.full_name || 
                      authStatus.user.email?.split('@')[0] || '',
@@ -68,84 +60,148 @@ useEffect(() => {
             lastLogin: authStatus.token.last_login,
             tokenExpiresAt: authStatus.token.expires_at
           });
-        } else {
-          console.log('No valid authentication found:', authStatus.reason);
-          setUserData({ fullName: '', email: '', authMethod: null });
+          
+          // Ensure Firebase doesn't interfere with JWT auth
+          if (firebase_user && lastAuthMethod !== 'google') {
+            console.log('Clearing Firebase user to prevent interference with JWT');
+            if (clearUser) {
+              clearUser();
+            }
+          }
+          return;
         }
+        
+        // Priority 2: Check Firebase authentication only if JWT is not active
+        if (firebase_user && !authStatus.authenticated) {
+          console.log('Using Google/Firebase authentication');
+          setUserData({
+            fullName: firebase_user.displayName || firebase_user.email?.split('@')[0] || '',
+            email: firebase_user.email || '',
+            authMethod: 'google'
+          });
+          return;
+        }
+        
+        // Priority 3: Check if we have a valid auth method preference
+        if (lastAuthMethod === 'google' && firebase_user) {
+          console.log('Restoring Google authentication based on preference');
+          setUserData({
+            fullName: firebase_user.displayName || firebase_user.email?.split('@')[0] || '',
+            email: firebase_user.email || '',
+            authMethod: 'google'
+          });
+          return;
+        }
+        
+        // No valid authentication found
+        console.log('No valid authentication found');
+        setUserData({ fullName: '', email: '', authMethod: null });
+        
+      } catch (error) {
+        console.error('Authentication error:', error);
+        setUserData({ fullName: '', email: '', authMethod: null });
+      } finally {
+        setLoading(false);
       }
-      
-    } catch (error) {
-      console.error('Authentication error:', error);
-      setUserData({ fullName: '', email: '', authMethod: null });
-    } finally {
-      setLoading(false);
+    };
+
+    fetchUserData();
+  }, [firebase_user, clearUser]);
+
+  // FIXED: Comprehensive logout that prevents auth method mixing
+  const handleLogoutConfirmation = async (confirmed) => {
+    setShowLogoutConfirmation(false);
+    if (confirmed) {
+      try {
+        console.log('Starting comprehensive logout...');
+        
+        const lastAuthMethod = localStorage.getItem('lastAuthMethod');
+        console.log('Logging out from method:', lastAuthMethod);
+        
+        // Step 1: Logout from Firebase/Google if it was used
+        if (lastAuthMethod === 'google' || firebase_user) {
+          console.log('Logging out from Firebase/Google');
+          try {
+            if (completeLogout) {
+              await completeLogout();
+            }
+            if (clearUser) {
+              clearUser();
+            }
+          } catch (firebaseError) {
+            console.warn('Firebase logout failed:', firebaseError);
+          }
+        }
+        
+        // Step 2: Logout from backend/JWT
+        if (lastAuthMethod === 'jwt' || ApiService.getAccessToken()) {
+          console.log('Logging out from backend/JWT');
+          try {
+            await ApiService.logout();
+          } catch (apiError) {
+            console.warn('Backend logout failed:', apiError);
+          }
+        }
+        
+        // Step 3: Comprehensive cleanup - Clear ALL authentication data
+        console.log('Clearing all authentication data...');
+        
+        // Clear localStorage completely
+        const keysToRemove = [
+          'userData',
+          'authToken',
+          'access_token',
+          'refresh_token',
+          'lastAuthMethod',
+          'authTimestamp',
+          'firebase:authUser:',
+          'firebase:host:',
+          'user-data',
+          'google-auth-token'
+        ];
+        
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key);
+        });
+        
+        // Clear any Firebase-related keys that might have dynamic names
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('firebase:') || key.includes('firebase')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        // Step 4: Clear component state
+        setUserData({ fullName: '', email: '', authMethod: null });
+        
+        // Step 5: Force Firebase signOut if still signed in
+        try {
+          if (firebase_user) {
+            console.log('Force clearing Firebase user...');
+            if (clearUser) {
+              clearUser();
+            }
+          }
+        } catch (error) {
+          console.warn('Force Firebase clear failed:', error);
+        }
+        
+        console.log('Logout completed successfully');
+        navigate('/login');
+        
+      } catch (error) {
+        console.error('Logout failed:', error);
+        
+        // Force cleanup even if logout fails
+        localStorage.clear();
+        if (clearUser) clearUser();
+        setUserData({ fullName: '', email: '', authMethod: null });
+        navigate('/login');
+      }
     }
   };
 
-  fetchUserData();
-}, [firebase_user]);
-
-// Removed unused setAuthMethod function - it's used in the Login component instead
-
-// Updated logout to clear auth method tracking
-const handleLogoutConfirmation = async (confirmed) => {
-  setShowLogoutConfirmation(false);
-  if (confirmed) {
-    try {
-      console.log('Logging out user...');
-      
-      const lastAuthMethod = localStorage.getItem('lastAuthMethod');
-      console.log('Logout method:', lastAuthMethod);
-      
-      // Logout based on the last used method
-      if (lastAuthMethod === 'google' && completeLogout) {
-        console.log('Logging out from Firebase/Google');
-        await completeLogout();
-      }
-      
-      if (lastAuthMethod === 'jwt' || ApiService.isAuthenticated()) {
-        console.log('Logging out from backend/JWT');
-        try {
-          await ApiService.logout();
-        } catch (apiError) {
-          console.warn('Backend logout failed:', apiError);
-        }
-      }
-      
-      // Clear all authentication data and tracking
-      localStorage.removeItem('userData');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('lastAuthMethod');
-      localStorage.removeItem('authTimestamp');
-      
-      // Clear Firebase auth state if needed
-      if (clearUser) {
-        clearUser();
-      }
-      
-      setUserData({ fullName: '', email: '' });
-      navigate('/login');
-      
-    } catch (error) {
-      console.error('Logout failed:', error);
-      
-      // Force cleanup
-      localStorage.clear();
-      if (clearUser) clearUser();
-      setUserData({ fullName: '', email: '' });
-      navigate('/login');
-    }
-  }
-}; // Add firebase_user as dependency
-
   // Navigation handlers
-  // const navigateToProfile = () => {
-  //   setUserMenuOpen(false);
-  //   navigate("/profile");
-  // };
-
   const navigateToSettings = () => {
     setUserMenuOpen(false);
     navigate("/settings");
@@ -156,49 +212,6 @@ const handleLogoutConfirmation = async (confirmed) => {
     setUserMenuOpen(false);
     setShowLogoutConfirmation(true);
   };
-
-  // Handle logout confirmation response
-  // const handleLogoutConfirmation = async (confirmed) => {
-  //   setShowLogoutConfirmation(false);
-  //   if (confirmed) {
-  //     try {
-  //       // Use the complete logout from auth store
-  //       await completeLogout();
-        
-  //       // Additional API logout if needed
-  //       try {
-  //         await ApiService.logout();
-  //       } catch (apiError) {
-  //         console.warn('API logout failed, but continuing with logout:', apiError);
-  //       }
-        
-  //       // Reset component state
-  //       setUserData({
-  //         fullName: '',
-  //         email: '',
-  //       });
-        
-  //       // Redirect to login page
-  //       navigate('/login');
-  //     } catch (error) {
-  //       console.error('Complete logout failed:', error);
-        
-  //       // Fallback: manual cleanup
-  //       if (clearUser) {
-  //         clearUser();
-  //       }
-  //       localStorage.removeItem('userData');
-  //       localStorage.removeItem('authToken');
-        
-  //       setUserData({
-  //         fullName: '',
-  //         email: '',
-  //       });
-        
-  //       navigate('/login');
-  //     }
-  //   }
-  // };
 
   // Get user's initials for avatar fallback
   const getUserInitials = () => {
@@ -290,14 +303,11 @@ const handleLogoutConfirmation = async (confirmed) => {
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {userData?.email || "Loading..."}
                     </p>
+                    {/* Debug info - remove in production */}
+                    <p className="text-xs text-blue-500 dark:text-blue-400">
+                      Auth: {userData?.authMethod || 'unknown'}
+                    </p>
                   </div>
-                  {/* <button 
-                    onClick={navigateToProfile}
-                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
-                  >
-                    <User size={16} className="mr-3 text-gray-500 dark:text-gray-400" />
-                    Profile
-                  </button> */}
                   <button 
                     onClick={navigateToSettings}
                     className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
