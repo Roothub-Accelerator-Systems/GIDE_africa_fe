@@ -438,17 +438,67 @@ async makeRequest(endpoint, options = {}) {
   }
 
   // USER PROFILE MANAGEMENT
-  async getCurrentUser() {
-    try {
-      console.log('Making request to fetch current user data');
-      const response = await this.makeRequest('/auth/get_current_user');
-      console.log('getCurrentUser response:', response);
-      return response;
-    } catch (error) {
-      console.error('Failed to get current user:', error);
-      throw error;
-    }
+ // Enhanced getCurrentUser method that extracts all available data
+async getCurrentUser() {
+  try {
+    console.log('Making request to fetch current user data');
+    const response = await this.makeRequest('/auth/get_current_user');
+    console.log('getCurrentUser response:', response);
+    
+    // Extract all available data from the response
+    const userData = {
+      // Basic user info
+      id: response.id || response.user_id,
+      username: response.username,
+      full_name: response.full_name,
+      email: response.email,
+      
+      // Token information (if available)
+      access_token: response.access_token,
+      refresh_token: response.refresh_token,
+      token_type: response.token_type,
+      
+      // Timestamps (if available)
+      created_at: response.created_at,
+      updated_at: response.updated_at,
+      last_login: response.last_login,
+      token_issued_at: response.token_issued_at,
+      token_expires_at: response.token_expires_at,
+      
+      // Raw response for any additional fields
+      raw_response: response
+    };
+    
+    console.log('Extracted user data:', userData);
+    return userData;
+    
+  } catch (error) {
+    console.error('Failed to get current user:', error);
+    throw error;
   }
+}
+
+// Helper method to get token info from getCurrentUser response
+async getTokenInfoFromUser() {
+  try {
+    const userData = await this.getCurrentUser();
+    
+    return {
+      access_token: userData.access_token,
+      refresh_token: userData.refresh_token,
+      token_type: userData.token_type,
+      issued_at: userData.token_issued_at,
+      expires_at: userData.token_expires_at,
+      // Calculate if token is expired based on server response
+      is_expired: userData.token_expires_at ? 
+        new Date(userData.token_expires_at) < new Date() : false
+    };
+    
+  } catch (error) {
+    console.error('Failed to get token info:', error);
+    return null;
+  }
+}
 
   async updateUserProfile(profileData) {
     try {
@@ -689,6 +739,104 @@ async makeRequest(endpoint, options = {}) {
       throw error;
     }
   }
+  // Add these methods to your ApiService class
+
+// Check token validity using the backend endpoint instead of client-side decoding
+async isTokenValidOnServer() {
+  try {
+    const userData = await this.getCurrentUser();
+    
+    // If we get user data successfully, token is valid
+    if (userData && userData.email) {
+      return {
+        valid: true,
+        user: userData,
+        token_info: {
+          issued_at: userData.token_issued_at,
+          expires_at: userData.token_expires_at,
+          last_login: userData.last_login
+        }
+      };
+    }
+    
+    return { valid: false };
+    
+  } catch (error) {
+    console.error('Server token validation failed:', error);
+    
+    // If we get 401, token is definitely invalid
+    if (error.message.includes('401') || error.message.includes('unauthorized')) {
+      return { valid: false, reason: 'unauthorized' };
+    }
+    
+    // For other errors, we can't determine validity
+    return { valid: false, reason: 'unknown', error: error.message };
+  }
+}
+
+// Enhanced authentication check using server validation
+async isAuthenticatedWithServer() {
+  try {
+    const localToken = this.getAccessToken();
+    
+    if (!localToken) {
+      return { authenticated: false, reason: 'no_token' };
+    }
+    
+    // Check with server instead of client-side token parsing
+    const serverValidation = await this.isTokenValidOnServer();
+    
+    if (serverValidation.valid) {
+      return {
+        authenticated: true,
+        user: serverValidation.user,
+        token_info: serverValidation.token_info
+      };
+    }
+    
+    return {
+      authenticated: false,
+      reason: serverValidation.reason || 'invalid_token'
+    };
+    
+  } catch (error) {
+    console.error('Authentication check failed:', error);
+    return { authenticated: false, reason: 'error', error: error.message };
+  }
+}
+
+// Get comprehensive authentication status
+async getAuthStatus() {
+  try {
+    const authCheck = await this.isAuthenticatedWithServer();
+    
+    if (authCheck.authenticated) {
+      return {
+        authenticated: true,
+        method: 'jwt',
+        user: authCheck.user,
+        token: {
+          access_token: authCheck.user.access_token,
+          issued_at: authCheck.token_info.issued_at,
+          expires_at: authCheck.token_info.expires_at,
+          last_login: authCheck.token_info.last_login
+        }
+      };
+    }
+    
+    return {
+      authenticated: false,
+      reason: authCheck.reason
+    };
+    
+  } catch (error) {
+    return {
+      authenticated: false,
+      reason: 'error',
+      error: error.message
+    };
+  }
+}
 
 }
 
