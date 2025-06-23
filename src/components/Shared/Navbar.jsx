@@ -4,7 +4,7 @@ import { Menu, User, Settings, LogOut } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import LogoutConfirmation from "./LogoutConfirmation";
 import ApiService from "../Auth/ApiService";
-import { useAuthStore } from "../Auth/useAuthStore";
+import { useAuthStore } from "../Auth/useAuthStore"; // Import the auth store
 
 const Navbar = ({ toggleSidebar }) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -34,174 +34,227 @@ const Navbar = ({ toggleSidebar }) => {
     };
   }, []);
 
-  // FIXED: Better authentication method detection with proper priority
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setLoading(true);
-        
-        // Get the last used authentication method
-        const lastAuthMethod = localStorage.getItem('lastAuthMethod');
-        console.log('Last auth method:', lastAuthMethod);
-        
-        // Priority 1: Check for explicit JWT authentication first
-        // This prevents Firebase from overriding JWT logins
-        const authStatus = await ApiService.getAuthStatus();
-        console.log('JWT Auth status:', authStatus);
-        
-        if (authStatus.authenticated && authStatus.method === 'jwt') {
-          console.log('Using JWT authentication');
-          setUserData({
-            fullName: authStatus.user.username || authStatus.user.full_name || 
-                     authStatus.user.email?.split('@')[0] || '',
-            email: authStatus.user.email || '',
-            authMethod: 'jwt',
-            userId: authStatus.user.id,
-            lastLogin: authStatus.token.last_login,
-            tokenExpiresAt: authStatus.token.expires_at
-          });
+// Fixed fetchUserData function - Proper Authentication Method Detection
+// Replace the complex authentication logic with this simpler approach
+// Replace the problematic section in your useEffect with this improved logic:
+
+useEffect(() => {
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current authentication states
+      const hasFirebaseUser = !!firebase_user;
+      const hasBackendAuth = ApiService.isAuthenticated();
+      const hasValidToken = hasBackendAuth && !ApiService.isTokenExpired(ApiService.getAccessToken());
+      
+      // Check for recent authentication activity to determine the active method
+      const lastAuthMethod = localStorage.getItem('lastAuthMethod'); // 'google' or 'jwt'
+      const authTimestamp = localStorage.getItem('authTimestamp');
+      const currentTime = Date.now();
+      const isRecentAuth = authTimestamp && (currentTime - parseInt(authTimestamp)) < 5000; // 5 second threshold (increased)
+      
+      console.log('Auth state analysis:', {
+        hasFirebaseUser,
+        hasBackendAuth,
+        hasValidToken,
+        lastAuthMethod,
+        isRecentAuth,
+        firebaseUserEmail: firebase_user?.email,
+        tokenExists: !!ApiService.getAccessToken()
+      });
+      
+      // Determine the active authentication method with improved logic
+      let activeAuthMethod = null;
+      
+      // Priority 1: If we have recent auth activity (within 5 seconds), use that method
+      if (isRecentAuth && lastAuthMethod) {
+        if (lastAuthMethod === 'google' && hasFirebaseUser) {
+          activeAuthMethod = 'google';
+          console.log(`Using recent Google auth method`);
+        } else if (lastAuthMethod === 'jwt' && hasValidToken) {
+          activeAuthMethod = 'jwt';
+          console.log(`Using recent JWT auth method`);
+        }
+      }
+      
+      // Priority 2: If no recent activity or recent auth method is invalid, determine based on current state
+      if (!activeAuthMethod) {
+        // Both methods are valid - prefer JWT over Firebase to avoid the timestamp comparison issue
+        if (hasFirebaseUser && hasValidToken) {
+          console.log('Both auth methods detected - preferring JWT as primary');
+          activeAuthMethod = 'jwt';
+        }
+        // Only Firebase is valid
+        else if (hasFirebaseUser && !hasValidToken) {
+          activeAuthMethod = 'google';
+          console.log('Only Firebase auth is valid');
+        }
+        // Only JWT is valid
+        else if (!hasFirebaseUser && hasValidToken) {
+          activeAuthMethod = 'jwt';
+          console.log('Only JWT auth is valid');
+        }
+        // No valid authentication
+        else {
+          activeAuthMethod = null;
+          console.log('No valid authentication found');
+        }
+      }
+      
+      // Apply the authentication method
+      switch (activeAuthMethod) {
+        case 'google':
+          if (hasFirebaseUser && firebase_user) {
+            console.log('Using Google/Firebase authentication');
+            setUserData({
+              fullName: firebase_user.displayName || firebase_user.email?.split('@')[0] || '',
+              email: firebase_user.email || '',
+            });
+          } else {
+            console.log('Google method selected but no Firebase user found');
+            setUserData({ fullName: '', email: '' });
+          }
+          break;
           
-          // Ensure Firebase doesn't interfere with JWT auth
-          if (firebase_user && lastAuthMethod !== 'google') {
-            console.log('Clearing Firebase user to prevent interference with JWT');
-            if (clearUser) {
-              clearUser();
+        case 'jwt':
+          if (hasValidToken) {
+            console.log('Using JWT/Backend authentication');
+            
+            try {
+              // Try backend API first
+              const user = await ApiService.getCurrentUser();
+              console.log('Backend user data:', user);
+              
+              setUserData({
+                fullName: user.username || user.full_name || user.name || user.fullName || user.displayName || user.email?.split('@')[0] || '',
+                email: user.email || '',
+              });
+            } catch (apiError) {
+              console.log('Backend API failed, decoding JWT token:', apiError);
+              
+              // Fallback to JWT token decoding
+              const token = ApiService.getAccessToken();
+              try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                console.log('JWT payload data:', payload);
+                
+                setUserData({
+                  fullName: payload.username || payload.full_name || payload.name || payload.email?.split('@')[0] || '',
+                  email: payload.email || payload.sub || '',
+                });
+              } catch (tokenError) {
+                console.error('Failed to decode JWT token:', tokenError);
+                setUserData({ fullName: '', email: '' });
+              }
             }
+          } else {
+            console.log('JWT method selected but no valid token found');
+            setUserData({ fullName: '', email: '' });
           }
-          return;
-        }
-        
-        // Priority 2: Check Firebase authentication only if JWT is not active
-        if (firebase_user && !authStatus.authenticated) {
-          console.log('Using Google/Firebase authentication');
-          setUserData({
-            fullName: firebase_user.displayName || firebase_user.email?.split('@')[0] || '',
-            email: firebase_user.email || '',
-            authMethod: 'google'
-          });
-          return;
-        }
-        
-        // Priority 3: Check if we have a valid auth method preference
-        if (lastAuthMethod === 'google' && firebase_user) {
-          console.log('Restoring Google authentication based on preference');
-          setUserData({
-            fullName: firebase_user.displayName || firebase_user.email?.split('@')[0] || '',
-            email: firebase_user.email || '',
-            authMethod: 'google'
-          });
-          return;
-        }
-        
-        // No valid authentication found
-        console.log('No valid authentication found');
-        setUserData({ fullName: '', email: '', authMethod: null });
-        
-      } catch (error) {
-        console.error('Authentication error:', error);
-        setUserData({ fullName: '', email: '', authMethod: null });
-      } finally {
-        setLoading(false);
+          break;
+          
+        default:
+          console.log('No active authentication method found');
+          setUserData({ fullName: '', email: '' });
+          
+          // Clean up if we have invalid auth states
+          if (hasBackendAuth && !hasValidToken) {
+            console.log('Cleaning up invalid JWT token');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('userData');
+            localStorage.removeItem('lastAuthMethod');
+            localStorage.removeItem('authTimestamp');
+          }
+          break;
       }
-    };
-
-    fetchUserData();
-  }, [firebase_user, clearUser]);
-
-  // FIXED: Comprehensive logout that prevents auth method mixing
-  const handleLogoutConfirmation = async (confirmed) => {
-    setShowLogoutConfirmation(false);
-    if (confirmed) {
-      try {
-        console.log('Starting comprehensive logout...');
-        
-        const lastAuthMethod = localStorage.getItem('lastAuthMethod');
-        console.log('Logging out from method:', lastAuthMethod);
-        
-        // Step 1: Logout from Firebase/Google if it was used
-        if (lastAuthMethod === 'google' || firebase_user) {
-          console.log('Logging out from Firebase/Google');
-          try {
-            if (completeLogout) {
-              await completeLogout();
-            }
-            if (clearUser) {
-              clearUser();
-            }
-          } catch (firebaseError) {
-            console.warn('Firebase logout failed:', firebaseError);
-          }
-        }
-        
-        // Step 2: Logout from backend/JWT
-        if (lastAuthMethod === 'jwt' || ApiService.getAccessToken()) {
-          console.log('Logging out from backend/JWT');
-          try {
-            await ApiService.logout();
-          } catch (apiError) {
-            console.warn('Backend logout failed:', apiError);
-          }
-        }
-        
-        // Step 3: Comprehensive cleanup - Clear ALL authentication data
-        console.log('Clearing all authentication data...');
-        
-        // Clear localStorage completely
-        const keysToRemove = [
-          'userData',
-          'authToken',
-          'access_token',
-          'refresh_token',
-          'lastAuthMethod',
-          'authTimestamp',
-          'firebase:authUser:',
-          'firebase:host:',
-          'user-data',
-          'google-auth-token'
-        ];
-        
-        keysToRemove.forEach(key => {
-          localStorage.removeItem(key);
-        });
-        
-        // Clear any Firebase-related keys that might have dynamic names
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('firebase:') || key.includes('firebase')) {
-            localStorage.removeItem(key);
-          }
-        });
-        
-        // Step 4: Clear component state
-        setUserData({ fullName: '', email: '', authMethod: null });
-        
-        // Step 5: Force Firebase signOut if still signed in
-        try {
-          if (firebase_user) {
-            console.log('Force clearing Firebase user...');
-            if (clearUser) {
-              clearUser();
-            }
-          }
-        } catch (error) {
-          console.warn('Force Firebase clear failed:', error);
-        }
-        
-        console.log('Logout completed successfully');
-        navigate('/login');
-        
-      } catch (error) {
-        console.error('Logout failed:', error);
-        
-        // Force cleanup even if logout fails
-        localStorage.clear();
-        if (clearUser) clearUser();
-        setUserData({ fullName: '', email: '', authMethod: null });
+      
+    } catch (authError) {
+      console.error('Authentication error:', authError);
+      
+      setUserData({ fullName: '', email: '' });
+      
+      if (authError.message.includes('401') || authError.message.includes('unauthorized')) {
+        console.log('Unauthorized - clearing all auth data');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('userData');
+        localStorage.removeItem('lastAuthMethod');
+        localStorage.removeItem('authTimestamp');
         navigate('/login');
       }
+    } finally {
+      setLoading(false);
     }
   };
 
+  fetchUserData();
+}, [navigate, firebase_user]);
+
+// Removed unused setAuthMethod function - it's used in the Login component instead
+
+// Updated logout to clear auth method tracking
+const handleLogoutConfirmation = async (confirmed) => {
+  setShowLogoutConfirmation(false);
+  if (confirmed) {
+    try {
+      console.log('Logging out user...');
+      
+      const lastAuthMethod = localStorage.getItem('lastAuthMethod');
+      console.log('Logout method:', lastAuthMethod);
+      
+      // Logout based on the last used method
+      if (lastAuthMethod === 'google' && completeLogout) {
+        console.log('Logging out from Firebase/Google');
+        await completeLogout();
+      }
+      
+      if (lastAuthMethod === 'jwt' || ApiService.isAuthenticated()) {
+        console.log('Logging out from backend/JWT');
+        try {
+          await ApiService.logout();
+        } catch (apiError) {
+          console.warn('Backend logout failed:', apiError);
+        }
+      }
+      
+      // Clear all authentication data and tracking
+      localStorage.removeItem('userData');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('lastAuthMethod');
+      localStorage.removeItem('authTimestamp');
+      
+      // Clear Firebase auth state if needed
+      if (clearUser) {
+        clearUser();
+      }
+      
+      setUserData({ fullName: '', email: '' });
+      navigate('/login');
+      
+    } catch (error) {
+      console.error('Logout failed:', error);
+      
+      // Force cleanup
+      localStorage.clear();
+      if (clearUser) clearUser();
+      setUserData({ fullName: '', email: '' });
+      navigate('/login');
+    }
+  }
+}; // Add firebase_user as dependency
+
   // Navigation handlers
+  // const navigateToProfile = () => {
+  //   setUserMenuOpen(false);
+  //   navigate("/profile");
+  // };
+
   const navigateToSettings = () => {
     setUserMenuOpen(false);
     navigate("/settings");
@@ -212,6 +265,49 @@ const Navbar = ({ toggleSidebar }) => {
     setUserMenuOpen(false);
     setShowLogoutConfirmation(true);
   };
+
+  // Handle logout confirmation response
+  // const handleLogoutConfirmation = async (confirmed) => {
+  //   setShowLogoutConfirmation(false);
+  //   if (confirmed) {
+  //     try {
+  //       // Use the complete logout from auth store
+  //       await completeLogout();
+        
+  //       // Additional API logout if needed
+  //       try {
+  //         await ApiService.logout();
+  //       } catch (apiError) {
+  //         console.warn('API logout failed, but continuing with logout:', apiError);
+  //       }
+        
+  //       // Reset component state
+  //       setUserData({
+  //         fullName: '',
+  //         email: '',
+  //       });
+        
+  //       // Redirect to login page
+  //       navigate('/login');
+  //     } catch (error) {
+  //       console.error('Complete logout failed:', error);
+        
+  //       // Fallback: manual cleanup
+  //       if (clearUser) {
+  //         clearUser();
+  //       }
+  //       localStorage.removeItem('userData');
+  //       localStorage.removeItem('authToken');
+        
+  //       setUserData({
+  //         fullName: '',
+  //         email: '',
+  //       });
+        
+  //       navigate('/login');
+  //     }
+  //   }
+  // };
 
   // Get user's initials for avatar fallback
   const getUserInitials = () => {
@@ -303,11 +399,14 @@ const Navbar = ({ toggleSidebar }) => {
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {userData?.email || "Loading..."}
                     </p>
-                    {/* Debug info - remove in production */}
-                    <p className="text-xs text-blue-500 dark:text-blue-400">
-                      Auth: {userData?.authMethod || 'unknown'}
-                    </p>
                   </div>
+                  {/* <button 
+                    onClick={navigateToProfile}
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
+                  >
+                    <User size={16} className="mr-3 text-gray-500 dark:text-gray-400" />
+                    Profile
+                  </button> */}
                   <button 
                     onClick={navigateToSettings}
                     className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
