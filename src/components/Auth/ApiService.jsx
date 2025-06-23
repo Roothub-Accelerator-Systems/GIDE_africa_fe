@@ -441,7 +441,7 @@ async makeRequest(endpoint, options = {}) {
   async getCurrentUser() {
     try {
       console.log('Making request to fetch current user data');
-      const response = await this.makeRequest('/auth/get_user_profile');
+      const response = await this.makeRequest('/auth/get_current_user');
       console.log('getCurrentUser response:', response);
       return response;
     } catch (error) {
