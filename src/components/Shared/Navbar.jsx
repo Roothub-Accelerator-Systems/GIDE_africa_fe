@@ -76,7 +76,7 @@ useEffect(() => {
           console.log('Both auth methods detected - need to determine active one');
           
           // Check if JWT token was created recently (more recent than Firebase session)
-          const token = ApiService.getAccessToken();
+          const token = ApiService.getCurrentUser();
           if (token) {
             try {
               const payload = JSON.parse(atob(token.split('.')[1]));
