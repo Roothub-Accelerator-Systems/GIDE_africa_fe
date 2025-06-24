@@ -506,7 +506,7 @@ useEffect(() => {
 
             {/* Resume List */}
         {/* Resume Section */}
-       {/* Resume Section */}
+      {/* Resume Section */}
       <motion.div 
         className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden"
         variants={itemAnimation}
@@ -518,10 +518,10 @@ useEffect(() => {
               onClick={handleResumeBuilder}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="mx-auto flex flex-col items-center justify-center w-32 h-32 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full border-2 border-dashed border-blue-300 dark:border-blue-600 transition-colors group"
+              className="mx-auto flex flex-col items-center justify-center transition-colors group"
             >
-              <Plus size={48} className="text-blue-600 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-blue-600 dark:text-blue-400 font-medium">Create Resume</span>
+              <Plus size={80} className="lg:w-24 lg:h-24 md:w-20 md:h-20 w-16 h-16 text-blue-600 dark:text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
+              <span className="text-blue-600 dark:text-blue-400 font-medium text-lg">Create Resume</span>
             </motion.button>
             <p className="text-gray-500 dark:text-gray-400 mt-4">
               Get started by creating your first professional resume
