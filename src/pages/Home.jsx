@@ -154,28 +154,28 @@ const Home = () => {
                 </a>
                 <a
                   href="#"
-                  onClick={() => handleNavigation('/templates')}
+                  onClick={() => handleNavigation('/login')}
                   className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
                 >
                   Templates
                 </a>
                 <a
                   href="#"
-                  onClick={() => handleNavigation('/resume-builder')}
+                  onClick={() => handleNavigation('/login')}
                   className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
                 >
                   Resume Builder
                 </a>
                 <a
                   href="#"
-                  onClick={() => handleNavigation('/ats-scanner')}
+                  onClick={() => handleNavigation('/login')}
                   className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
                 >
                   Cover-letter
                 </a>
                 <a
                   href="#"
-                  onClick={() => handleNavigation('/pricing')}
+                  onClick={() => handleNavigation('/login')}
                   className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
                 >
                   Pricing
