@@ -505,30 +505,10 @@ useEffect(() => {
             </motion.div>
 
             {/* Resume List */}
-        {/* Resume Section */}
-        <motion.div 
-          className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden"
-          variants={itemAnimation}
-        >
-          {resumes.length === 0 ? (
-            // Empty state with big plus icon for new users
-            <div className="p-12 text-center">
-              <motion.button
-                onClick={handleResumeBuilder}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="mx-auto flex flex-col items-center justify-center w-32 h-32 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full border-2 border-dashed border-blue-300 dark:border-blue-600 transition-colors group"
-              >
-                <Plus size={48} className="text-blue-600 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
-                <span className="text-blue-600 dark:text-blue-400 font-medium">Create Resume</span>
-              </motion.button>
-              <p className="text-gray-500 dark:text-gray-400 mt-4">
-                Get started by creating your first professional resume
-              </p>
-            </div>
-          ) : (
-            // Existing resume list for users with resumes
-            <>
+            <motion.div 
+              className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden"
+              variants={itemAnimation}
+            >
               <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">My Resumes</h2>
                 <motion.button
@@ -544,12 +524,131 @@ useEffect(() => {
               
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
                 {resumes.map((resume) => (
-                  // ... your existing resume mapping code stays the same
+                  <motion.div 
+                    key={resume.id}
+                    className="p-4 md:p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                    whileHover={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}
+                  >
+                    {/* Desktop Layout */}
+                    <div className="hidden md:flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+                          <FileText size={20} className="text-gray-600 dark:text-gray-300" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white">{resume.title}</h3>
+                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                            <p className="mr-4">Template: {resume.template}</p>
+                            <p>Last modified: {resume.lastModified}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                          title="Edit"
+                        >
+                          <Edit size={18} />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                          title="Download"
+                        >
+                          <Download size={18} />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                          title="Share"
+                        >
+                          <Share2 size={18} />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400"
+                          title="Delete"
+                        >
+                          <Trash2 size={18} />
+                        </motion.button>
+                      </div>
+                    </div>
+
+                    {/* Mobile Layout */}
+                    <div className="md:hidden space-y-4">
+                      {/* Resume Info */}
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg flex-shrink-0">
+                          <FileText size={20} className="text-gray-600 dark:text-gray-300" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-900 dark:text-white truncate">{resume.title}</h3>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
+                            <p>Template: {resume.template}</p>
+                            <p>Last modified: {resume.lastModified}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Job Applications Badge */}
+                      <div className="flex justify-start">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          {resume.jobApplications} Applications
+                        </span>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="grid grid-cols-4 gap-2">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="flex flex-col items-center justify-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        >
+                          <Edit size={18} />
+                          <span className="text-xs mt-1">Edit</span>
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="flex flex-col items-center justify-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        >
+                          <Download size={18} />
+                          <span className="text-xs mt-1">Download</span>
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="flex flex-col items-center justify-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        >
+                          <Share2 size={18} />
+                          <span className="text-xs mt-1">Share</span>
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="flex flex-col items-center justify-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <Trash2 size={18} />
+                          <span className="text-xs mt-1">Delete</span>
+                        </motion.button>
+                      </div>
+                    </div>
+
+                    {/* Applications badge for desktop */}
+                    <div className="hidden md:block mt-3 pl-12">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        {resume.jobApplications} Applications
+                      </span>
+                    </div>
+                  </motion.div>
                 ))}
               </div>
-            </>
-          )}
-        </motion.div>
+            </motion.div>
 
             {/* AI Tools and Recent Activity */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
