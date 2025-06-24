@@ -7,9 +7,12 @@ import {
   Mail, Phone, MapPin, Twitter, Linkedin, Instagram,
   Facebook, Youtube, ChevronUp
 } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
+import logo from '../lib/logo.png';
 
 const Home = () => {
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate(); // Add this hook
 
   // Remove the commented out navigate function and use the real one
@@ -122,8 +125,179 @@ const Home = () => {
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-r from-pink-300/20 to-orange-300/20 dark:from-pink-400/10 dark:to-orange-400/10 rounded-full blur-3xl animate-pulse"></div>
       </div>
 
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center">
+              <div className="flex-shrink-0 flex items-center">
+                <img 
+                  src={logo}
+                  alt="Gide.Africa Logo" 
+                  className="h-17 w-26 rounded-lg"
+                />
+                <span className="ml-2 text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+                  ResumeAI
+                </span>
+              </div>
+            </div>
+
+            {/* Desktop Navigation */}
+            <div className="hidden lg:block">
+              <div className="ml-10 flex items-baseline space-x-8">
+                <a
+                  href="#"
+                  onClick={() => handleNavigation('/')}
+                  className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                >
+                  Home
+                </a>
+                <a
+                  href="#"
+                  onClick={() => handleNavigation('/templates')}
+                  className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                >
+                  Templates
+                </a>
+                <a
+                  href="#"
+                  onClick={() => handleNavigation('/resume-builder')}
+                  className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                >
+                  Resume Builder
+                </a>
+                <a
+                  href="#"
+                  onClick={() => handleNavigation('/ats-scanner')}
+                  className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                >
+                  Cover-letter
+                </a>
+                <a
+                  href="#"
+                  onClick={() => handleNavigation('/pricing')}
+                  className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                >
+                  Pricing
+                </a>
+              </div>
+            </div>
+
+            {/* Desktop Auth Buttons */}
+            <div className="hidden lg:flex items-center space-x-4">
+              <button
+                onClick={() => handleNavigation('/login')}
+                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-4 py-2 text-sm font-medium transition-colors duration-200"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => handleNavigation('/signup')}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
+              >
+                Get Started
+              </button>
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="lg:hidden">
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded-md transition-colors duration-200"
+              >
+                {isMobileMenuOpen ? (
+                  <X className="h-6 w-6" />
+                ) : (
+                  <Menu className="h-6 w-6" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile menu */}
+        <div className={`lg:hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+          <div className="px-2 pt-2 pb-3 space-y-1 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-700/50">
+            <a
+              href="#"
+              onClick={() => {
+                handleNavigation('/');
+                setIsMobileMenuOpen(false);
+              }}
+              className="block text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
+            >
+              Home
+            </a>
+            <a
+              href="#"
+              onClick={() => {
+                handleNavigation('/login');
+                setIsMobileMenuOpen(false);
+              }}
+              className="block text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
+            >
+              Templates
+            </a>
+            <a
+              href="#"
+              onClick={() => {
+                handleNavigation('/logoin');
+                setIsMobileMenuOpen(false);
+              }}
+              className="block text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
+            >
+              Resume Builder
+            </a>
+            <a
+              href="#"
+              onClick={() => {
+                handleNavigation('/login');
+                setIsMobileMenuOpen(false);
+              }}
+              className="block text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
+            >
+              Cover-letter
+            </a>
+            <a
+              href="#"
+              onClick={() => {
+                handleNavigation('/login');
+                setIsMobileMenuOpen(false);
+              }}
+              className="block text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
+            >
+              Pricing
+            </a>
+            
+            {/* Mobile Auth Buttons */}
+            <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col space-y-2 px-3">
+                <button
+                  onClick={() => {
+                    handleNavigation('/login');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-left py-2 text-base font-medium transition-colors duration-200"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => {
+                    handleNavigation('/signup');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white px-4 py-2 rounded-lg text-base font-medium transition-all duration-200 text-center"
+                >
+                  Get Started
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+    </nav>
+
       {/* Hero Section */}
-      <section className="relative pt-25 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
           <div className="lg:w-1/2 z-10">
             <div className="mb-6">
