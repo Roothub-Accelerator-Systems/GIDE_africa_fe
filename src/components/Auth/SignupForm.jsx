@@ -190,46 +190,39 @@ const SignupForm = ({ onSubmit }) => {
     setErrors({ fullName: "", email: "", password: "", confirmPassword: "", agreeTerms: "", general: "" });
     
     try {
-      // Step 1: Register the user
+      // Step 1: Register the user (but don't auto-login)
       const registrationData = await ApiService.register({
         fullName: formData.fullName,
         email: formData.email,
         password: formData.password
       });
       
-      console.log("Registration successful:");
+      console.log("Registration successful:", registrationData);
       
-      // Step 2: Automatically log in the user after successful registration
-      const loginData = await ApiService.login({
-        email: formData.email,
-        password: formData.password
-      });
-      
-      console.log("Auto-login successful:");
-      
-      // Step 3: Store the auth token
-      if (loginData.access_token) {
-        localStorage.setItem('authToken', loginData.access_token);
-        console.log('Auth token stored after signup:', loginData.access_token);
-      }
-      
-      // Step 4: Call the onSubmit prop function if provided
+      // Step 2: Call the onSubmit prop function if provided
       if (onSubmit) {
         onSubmit({
           fullName: formData.fullName,
           email: formData.email,
           registrationData: registrationData,
-          loginData: loginData,
-          authToken: loginData.access_token
+          // Don't include login data since we're not auto-logging in
         });
       }
       
-      // Step 5: Redirect to dashboard instead of login
-      console.log('Redirecting to dashboard after successful signup and login');
-      navigate('/dashboard');
+      // Step 3: Redirect to email verification page with user data
+      console.log('Redirecting to email verification page');
+      navigate('/verify-email', {
+        state: {
+          userData: {
+            fullName: formData.fullName,
+            email: formData.email,
+            registrationData: registrationData
+          }
+        }
+      });
       
     } catch (error) {
-      console.error("Signup process error:", error);
+      console.error("Signup error:", error);
       
       // Handle specific error cases - Updated to match actual API error messages
       const errorMessage = error.message.toLowerCase();
@@ -260,14 +253,6 @@ const SignupForm = ({ onSubmit }) => {
           ...errors,
           fullName: "Please enter a valid full name."
         });
-      } else if (errorMessage.includes('invalid credentials')) {
-        // This might happen during auto-login
-        setErrors({
-          ...errors,
-          general: "Account created but auto-login failed. Please try logging in manually."
-        });
-        // Still redirect to login in this case
-        setTimeout(() => navigate('/login'), 2000);
       } else if (errorMessage.includes('network error') || 
                  errorMessage.includes('unable to connect')) {
         setErrors({

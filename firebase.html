@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Firebase Google Sign-In Test</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+</head>
+<body>
+  <h2>Sign in with Google</h2>
+  <button id="google-signin">Sign In</button>
+
+  <script>
+    // Replace with your Firebase project config
+    const firebaseConfig = {
+        apiKey: "AIzaSyD9QtyiVRUfy_pecBEubqyp35D9u_R9nTU",
+        authDomain: "authentication-for-gide.firebaseapp.com",
+        projectId: "authentication-for-gide",
+        storageBucket: "authentication-for-gide.firebasestorage.app",
+        messagingSenderId: "594248581269",
+        appId: "1:594248581269:web:f600da262efb8567a7db9c",
+        measurementId: "G-SNZ4VE5Z5X"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    document.getElementById("google-signin").addEventListener("click", async () => {
+      try {
+        const result = await auth.signInWithPopup(provider);
+        const idToken = await result.user.getIdToken();
+
+        console.log("Firebase ID Token:", idToken);
+
+        // Send to FastAPI backend
+        const response = await fetch("http://localhost:8000/auth/google-sign-up", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ id_token: idToken })
+        });
+
+        const data = await response.json();
+        console.log("Backend response:", data);
+        alert(JSON.stringify(data));
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Google Sign-In failed: " + error.message);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -225,15 +225,15 @@ const handleGoogleSignIn = async () => {
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
               </div>
-              <div className="relative flex justify-center text-sm">
+              {/* <div className="relative flex justify-center text-sm">
                 <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                   Or 
                 </span>
-              </div>
+              </div> */}
             </div>
             
             {/* Google Sign In Button */}
-            <div className="mt-6">
+            {/* <div className="mt-6">
               <button
                 onClick={handleGoogleSignIn}
                 disabled={loading}
@@ -271,7 +271,7 @@ const handleGoogleSignIn = async () => {
                   </>
                 )}
               </button>
-            </div>
+            </div> */}
           </div>
           
           <div className="mt-6">

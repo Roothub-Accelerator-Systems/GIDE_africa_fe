@@ -8,6 +8,7 @@ import ResumeBuilder from './pages/ResumeBuilder';
 import Templates from './pages/Templates';
 import CoverLetter from './pages/CoverLetter';
 import Login from './pages/Login';
+import EmailVerification from './components/Auth/EmailVerification';
 import ProfilePage from './pages/ProfilePage'; 
 import Subscription from './pages/Subscription'
 import SettingsPage from './pages/SettingsPage'
@@ -98,6 +99,10 @@ function App() {
                 <Route 
                   path="/settings"
                   element={isAuthenticated ? <SettingsPage /> : <Navigate to="/settings" />}
+                />
+                <Route 
+                  path="/verify-email"
+                  element={isAuthenticated ? <EmailVerification /> : <Navigate to="/verify-email" />}
                 />
               </Routes>
             </main>

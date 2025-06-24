@@ -3,15 +3,15 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 
-// Your web app's Firebase configuration
+// Your web app's Firebase configuration using environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyD9QtyiVRUfy_pecBEubqyp35D9u_R9nTU",
-  authDomain: "authentication-for-gide.firebaseapp.com",
-  projectId: "authentication-for-gide",
-  storageBucket: "authentication-for-gide.firebasestorage.app",
-  messagingSenderId: "594248581269",
-  appId: "1:594248581269:web:f600da262efb8567a7db9c",
-  measurementId: "G-SNZ4VE5Z5X"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase

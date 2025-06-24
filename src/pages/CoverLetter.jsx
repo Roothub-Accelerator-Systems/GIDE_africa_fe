@@ -1,5 +1,4 @@
 import { useState } from 'react';
-// import { useTheme } from '../context/ThemeContext';
 import Navbar from '../components/Shared/Navbar';
 import Sidebar from '../components/Shared/Sidebar';
 import LoadingSpinner from '../components/Shared/LoadingSpinner';
@@ -7,14 +6,13 @@ import ApiService from '../components/Auth/ApiService';
 import { UploadButton } from '../lib/uploadthing';
 
 const CoverLetter = () => {
-  // const {  } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     jobTitle: '',
     companyName: '',
     keyPoints: '',
-    jobDescriptionUrl: '', // Store UploadThing URL
+    jobDescriptionUrl: '', 
   });
   
   const [errors, setErrors] = useState({
