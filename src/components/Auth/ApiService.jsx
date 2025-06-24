@@ -838,6 +838,153 @@ async getAuthStatus() {
   }
 }
 
+    // Add these methods to your existing ApiService class
+
+// EMAIL VERIFICATION METHODS
+async generateVerificationToken(email) {
+  try {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      throw new Error('Please provide a valid email address');
+    }
+
+    const response = await this.makeRequest('/auth/generate-verification-token', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+      }),
+    });
+
+    return {
+      token: response.token,
+      expires_at: response.expires_at,
+      message: response.message || 'Verification token generated successfully',
+      ...response
+    };
+
+  } catch (error) {
+    console.error('Failed to generate verification token:', error);
+    throw error;
+  }
+}
+
+async verifyEmail(token, email) {
+  try {
+    if (!token || !email) {
+      throw new Error('Verification token and email are required');
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      throw new Error('Please provide a valid email address');
+    }
+
+    const response = await this.makeRequest('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({
+        token: token,
+        email: email.trim().toLowerCase(),
+      }),
+    });
+
+    // If verification is successful and tokens are returned, store them
+    if (response.success && response.access_token) {
+      this.storeTokens(response.access_token, response.refresh_token);
+    }
+
+    return {
+      success: response.success || true,
+      message: response.message || 'Email verified successfully',
+      access_token: response.access_token,
+      refresh_token: response.refresh_token,
+      user: response.user,
+      ...response
+    };
+
+  } catch (error) {
+    console.error('Email verification failed:', error);
+    
+    // Handle specific error cases
+    if (error.message.includes('Invalid token') || 
+        error.message.includes('expired') ||
+        error.message.includes('Token not found')) {
+      throw new Error('Invalid or expired verification token. Please request a new verification email.');
+    } else if (error.message.includes('Email not found') || 
+               error.message.includes('User not found')) {
+      throw new Error('Email address not found. Please check your email or sign up again.');
+    } else if (error.message.includes('already verified')) {
+      throw new Error('Email address is already verified. You can proceed to login.');
+    }
+    
+    throw error;
+  }
+}
+
+async resendVerificationEmail(email) {
+  try {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      throw new Error('Please provide a valid email address');
+    }
+
+    const response = await this.makeRequest('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+      }),
+    });
+
+    return {
+      success: response.success || true,
+      message: response.message || 'Verification email sent successfully',
+      token: response.token,
+      expires_at: response.expires_at,
+      ...response
+    };
+
+  } catch (error) {
+    console.error('Failed to resend verification email:', error);
+    
+    // Handle specific error cases
+    if (error.message.includes('rate limit') || 
+        error.message.includes('too many requests')) {
+      throw new Error('Too many verification emails sent. Please wait before requesting another.');
+    } else if (error.message.includes('Email not found') || 
+               error.message.includes('User not found')) {
+      throw new Error('Email address not found. Please check your email or sign up again.');
+    } else if (error.message.includes('already verified')) {
+      throw new Error('Email address is already verified. You can proceed to login.');
+    }
+    
+    throw error;
+  }
+}
+
+// Check email verification status
+async checkEmailVerificationStatus(email) {
+  try {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      throw new Error('Please provide a valid email address');
+    }
+
+    const response = await this.makeRequest('/auth/check-verification-status', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+      }),
+    });
+
+    return {
+      is_verified: response.is_verified || false,
+      email: response.email,
+      verification_sent_at: response.verification_sent_at,
+      verification_expires_at: response.verification_expires_at,
+      ...response
+    };
+
+  } catch (error) {
+    console.error('Failed to check verification status:', error);
+    throw error;
+  }
+}
+
 }
 
 export default new ApiService();
