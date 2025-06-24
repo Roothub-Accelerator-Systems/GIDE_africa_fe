@@ -506,50 +506,109 @@ useEffect(() => {
 
             {/* Resume List */}
         {/* Resume Section */}
-        <motion.div 
-          className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden"
-          variants={itemAnimation}
-        >
-          {resumes.length === 0 ? (
-            // Empty state with big plus icon for new users
-            <div className="p-12 text-center">
+       {/* Resume Section */}
+      <motion.div 
+        className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden"
+        variants={itemAnimation}
+      >
+        {resumes.length === 0 ? (
+          // Empty state with big plus icon for new users
+          <div className="p-12 text-center">
+            <motion.button
+              onClick={handleResumeBuilder}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="mx-auto flex flex-col items-center justify-center w-32 h-32 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full border-2 border-dashed border-blue-300 dark:border-blue-600 transition-colors group"
+            >
+              <Plus size={48} className="text-blue-600 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-blue-600 dark:text-blue-400 font-medium">Create Resume</span>
+            </motion.button>
+            <p className="text-gray-500 dark:text-gray-400 mt-4">
+              Get started by creating your first professional resume
+            </p>
+          </div>
+        ) : (
+          // Existing resume list for users with resumes
+          <>
+            <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">My Resumes</h2>
               <motion.button
                 onClick={handleResumeBuilder}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="mx-auto flex flex-col items-center justify-center w-32 h-32 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full border-2 border-dashed border-blue-300 dark:border-blue-600 transition-colors group"
+                className="flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md w-full sm:w-auto"
               >
-                <Plus size={48} className="text-blue-600 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
-                <span className="text-blue-600 dark:text-blue-400 font-medium">Create Resume</span>
+                <Plus size={16} className="mr-1" />
+                Create New
               </motion.button>
-              <p className="text-gray-500 dark:text-gray-400 mt-4">
-                Get started by creating your first professional resume
-              </p>
             </div>
-          ) : (
-            // Existing resume list for users with resumes
-            <>
-              <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">My Resumes</h2>
-                <motion.button
-                  onClick={handleResumeBuilder}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md w-full sm:w-auto"
+            
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {resumes.map((resume) => (
+                <motion.div 
+                  key={resume.id}
+                  className="p-4 md:p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                  whileHover={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}
                 >
-                  <Plus size={16} className="mr-1" />
-                  Create New
-                </motion.button>
-              </div>
-              
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {resumes.map((resume) => (
-                  // ... your existing resume mapping code stays the same
-                ))}
-              </div>
-            </>
-          )}
-        </motion.div>
+                  <div className="hidden md:flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+                        <FileText size={20} className="text-gray-600 dark:text-gray-300" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white">{resume.title}</h3>
+                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                          <p className="mr-4">Template: {resume.template}</p>
+                          <p>Last modified: {resume.lastModified}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                        title="Edit"
+                      >
+                        <Edit size={18} />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                        title="Download"
+                      >
+                        <Download size={18} />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                        title="Share"
+                      >
+                        <Share2 size={18} />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </motion.button>
+                    </div>
+                  </div>
+                  <div className="hidden md:block mt-3 pl-12">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      {resume.jobApplications} Applications
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </>
+        )}
+      </motion.div>
 
             {/* AI Tools and Recent Activity */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
