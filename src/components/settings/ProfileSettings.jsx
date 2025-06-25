@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, UserCircle, UserCog, Mail, Calendar, Shield } from "lucide-react";
+import { User, Mail, Calendar, Shield } from "lucide-react";
 import ApiService from "../Auth/ApiService";
 import { useAuthStore } from "../Auth/useAuthStore";
 
@@ -170,6 +170,30 @@ const ProfileSettings = ({
     return userData.email ? userData.email.charAt(0).toUpperCase() : 'U';
   };
 
+  // Generate different background colors for avatar options
+  const getAvatarStyle = (variant) => {
+    const styles = {
+      blue: 'bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-800 dark:to-blue-900 text-blue-700 dark:text-blue-300',
+      purple: 'bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-800 dark:to-purple-900 text-purple-700 dark:text-purple-300',
+      green: 'bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 text-green-700 dark:text-green-300',
+      orange: 'bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-800 dark:to-orange-900 text-orange-700 dark:text-orange-300'
+    };
+    return styles[variant] || styles.blue;
+  };
+
+  const getCurrentAvatarStyle = () => {
+    switch (profileIcon) {
+      case 'purple':
+        return getAvatarStyle('purple');
+      case 'green':
+        return getAvatarStyle('green');
+      case 'orange':
+        return getAvatarStyle('orange');
+      default:
+        return getAvatarStyle('blue');
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -179,6 +203,7 @@ const ProfileSettings = ({
             <div className="flex flex-col items-center space-y-4">
               <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
               <div className="flex space-x-2">
+                <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
                 <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
                 <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
                 <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
@@ -209,18 +234,13 @@ const ProfileSettings = ({
       
       {/* Profile Section */}
       <div className="flex flex-col lg:flex-row lg:items-start space-y-6 lg:space-y-0 lg:space-x-8">
-        {/* Profile Avatar & Icon Selection */}
+        {/* Profile Avatar & Color Selection */}
         <div className="flex flex-col items-center space-y-4">
           <div className="relative">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 rounded-full flex items-center justify-center border-4 border-white dark:border-gray-700 shadow-lg">
-              {profileIcon === "default" && <User size={32} className="text-blue-600 dark:text-blue-400" />}
-              {profileIcon === "circle" && <UserCircle size={32} className="text-blue-600 dark:text-blue-400" />}
-              {profileIcon === "cog" && <UserCog size={32} className="text-blue-600 dark:text-blue-400" />}
-              {!profileIcon && (
-                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {getUserInitials()}
-                </span>
-              )}
+            <div className={`w-24 h-24 ${getCurrentAvatarStyle()} rounded-full flex items-center justify-center border-4 border-white dark:border-gray-700 shadow-lg`}>
+              <span className="text-2xl font-bold">
+                {getUserInitials()}
+              </span>
             </div>
             <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
           </div>
@@ -236,50 +256,48 @@ const ProfileSettings = ({
           
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-center">
-              Choose Profile Icon
+              Choose Avatar Color
             </p>
             <div className="flex space-x-3">
               <button
-                onClick={() => setProfileIcon("default")}
-                className={`p-3 rounded-full transition-all duration-200 ${
-                  profileIcon === "default" 
-                    ? "bg-blue-100 dark:bg-blue-900 ring-2 ring-blue-500" 
-                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
+                onClick={() => setProfileIcon("blue")}
+                className={`w-10 h-10 rounded-full transition-all duration-200 flex items-center justify-center text-sm font-medium ${
+                  !profileIcon || profileIcon === "blue"
+                    ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800" 
+                    : "hover:scale-110"
+                } ${getAvatarStyle('blue')}`}
               >
-                <User size={20} className={`${
-                  profileIcon === "default" 
-                    ? "text-blue-600 dark:text-blue-400" 
-                    : "text-gray-600 dark:text-gray-400"
-                }`} />
+                {getUserInitials()}
               </button>
               <button
-                onClick={() => setProfileIcon("circle")}
-                className={`p-3 rounded-full transition-all duration-200 ${
-                  profileIcon === "circle" 
-                    ? "bg-blue-100 dark:bg-blue-900 ring-2 ring-blue-500" 
-                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
+                onClick={() => setProfileIcon("purple")}
+                className={`w-10 h-10 rounded-full transition-all duration-200 flex items-center justify-center text-sm font-medium ${
+                  profileIcon === "purple" 
+                    ? "ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800" 
+                    : "hover:scale-110"
+                } ${getAvatarStyle('purple')}`}
               >
-                <UserCircle size={20} className={`${
-                  profileIcon === "circle" 
-                    ? "text-blue-600 dark:text-blue-400" 
-                    : "text-gray-600 dark:text-gray-400"
-                }`} />
+                {getUserInitials()}
               </button>
               <button
-                onClick={() => setProfileIcon("cog")}
-                className={`p-3 rounded-full transition-all duration-200 ${
-                  profileIcon === "cog" 
-                    ? "bg-blue-100 dark:bg-blue-900 ring-2 ring-blue-500" 
-                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
+                onClick={() => setProfileIcon("green")}
+                className={`w-10 h-10 rounded-full transition-all duration-200 flex items-center justify-center text-sm font-medium ${
+                  profileIcon === "green" 
+                    ? "ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-800" 
+                    : "hover:scale-110"
+                } ${getAvatarStyle('green')}`}
               >
-                <UserCog size={20} className={`${
-                  profileIcon === "cog" 
-                    ? "text-blue-600 dark:text-blue-400" 
-                    : "text-gray-600 dark:text-gray-400"
-                }`} />
+                {getUserInitials()}
+              </button>
+              <button
+                onClick={() => setProfileIcon("orange")}
+                className={`w-10 h-10 rounded-full transition-all duration-200 flex items-center justify-center text-sm font-medium ${
+                  profileIcon === "orange" 
+                    ? "ring-2 ring-orange-500 ring-offset-2 dark:ring-offset-gray-800" 
+                    : "hover:scale-110"
+                } ${getAvatarStyle('orange')}`}
+              >
+                {getUserInitials()}
               </button>
             </div>
           </div>
@@ -334,7 +352,7 @@ const ProfileSettings = ({
             </div>
             
             {/* Account Type */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Account Type
               </label>
@@ -346,20 +364,8 @@ const ProfileSettings = ({
                   </span>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
-          
-          {/* Bio Section */}
-          {/* <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Bio
-            </label>
-            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg min-h-[80px]">
-              <p className="text-gray-800 dark:text-gray-200 text-sm leading-relaxed">
-                {userData.bio || 'No bio provided'}
-              </p>
-            </div>
-          </div> */}
         </div>
       </div>
       
