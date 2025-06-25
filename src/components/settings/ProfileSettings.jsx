@@ -414,8 +414,8 @@ const ProfileSettings = ({
           </button>
         </div>
         
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
+        <div className="mt-4 p-4 bg-red-100 dark:bg-red-800/20 border border-red-400 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-800 dark:text-red-200">
             <strong>Note:</strong> Profile information is automatically synced from your authentication provider. 
             Some fields may not be editable depending on your account type.
           </p>
