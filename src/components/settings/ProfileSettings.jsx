@@ -222,7 +222,7 @@ const ProfileSettings = () => {
               {userData.fullName || 'No name provided'}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">
-              {authMethod === 'google' ? 'Google Account' : 'Standard Account'}
+              {authMethod === '' ? '' : ''}
             </p>
           </div>
         </div>
@@ -276,7 +276,7 @@ const ProfileSettings = () => {
             </div>
             
             {/* Account Type */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Account Type
               </label>
@@ -288,7 +288,7 @@ const ProfileSettings = () => {
                   </span>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
