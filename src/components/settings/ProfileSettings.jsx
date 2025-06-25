@@ -350,7 +350,7 @@ const ProfileSettings = ({
           </div>
           
           {/* Bio Section */}
-          <div className="mt-6">
+          {/* <div className="mt-6">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Bio
             </label>
@@ -359,7 +359,7 @@ const ProfileSettings = ({
                 {userData.bio || 'No bio provided'}
               </p>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
       
@@ -416,8 +416,8 @@ const ProfileSettings = ({
         
         <div className="mt-4 p-4 bg-red-100 dark:bg-red-800/20 border border-red-400 dark:border-red-800 rounded-lg">
           <p className="text-sm text-red-800 dark:text-red-200">
-            <strong>Note:</strong> Profile information is automatically synced from your authentication provider. 
-            Some fields may not be editable depending on your account type.
+            <strong>Note:</strong> Profile information is automatically synced from our database. 
+            Fields displayed here are not editable!.
           </p>
         </div>
       </div>
