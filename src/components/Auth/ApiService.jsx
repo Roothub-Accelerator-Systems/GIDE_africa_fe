@@ -980,17 +980,30 @@ async checkEmailVerificationStatus(email) {
     throw error;
   }
 }
+
 async resumebuilder(endpoint, method = 'GET', data = null) {
   try {
     const options = {
       method: method.toUpperCase(),
+      headers: {
+        'Content-Type': 'application/json',
+        // Add any other headers your API needs (like Authorization)
+      }
     };
-
+    
     // Add data to request body for POST, PUT, PATCH methods
     if (data && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
       options.body = JSON.stringify(data);
     }
-
+    
+    // For GET requests with data, add as query parameters
+    if (data && method.toUpperCase() === 'GET') {
+      const params = new URLSearchParams(data);
+      endpoint = `${endpoint}?${params}`;
+    }
+    
+    console.log(`Making ${method} request to ${endpoint}`, data ? { data } : '');
+    
     // Use your existing makeRequest method which handles auth, tokens, etc.
     const response = await this.makeRequest(endpoint, options);
     
@@ -998,10 +1011,16 @@ async resumebuilder(endpoint, method = 'GET', data = null) {
       data: response,
       success: true
     };
-
+    
   } catch (error) {
     console.error(`Resume API Error - ${method} ${endpoint}:`, error);
-    throw error;
+    
+    // Return a more structured error response
+    return {
+      data: null,
+      success: false,
+      error: error.message || 'Unknown error occurred'
+    };
   }
 }
 
