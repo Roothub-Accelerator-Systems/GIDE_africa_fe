@@ -3,25 +3,22 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
-    // Ensure baseURL doesn't end with slash to avoid double slashes
+   
     if (this.baseURL && this.baseURL.endsWith('/')) {
       this.baseURL = this.baseURL.slice(0, -1);
     }
   }
 
-  // TOKEN MANAGEMENT METHODS
-  
-  // Get access token from storage
   getAccessToken() {
     return localStorage.getItem('access_token');
   }
 
-  // Get refresh token from storage
+
   getRefreshToken() {
     return localStorage.getItem('refresh_token');
   }
 
-  // Store tokens after successful authentication
+
   storeTokens(accessToken, refreshToken = null) {
     localStorage.setItem('access_token', accessToken);
     if (refreshToken) {
@@ -29,7 +26,7 @@ class ApiService {
     }
   }
 
-  // Clear all tokens
+ 
   clearTokens() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
@@ -37,7 +34,7 @@ class ApiService {
     localStorage.removeItem('userData'); // Remove user data
   }
 
-  // Check if token is expired (client-side check)
+  
   isTokenExpired(token) {
     if (!token) return true;
     
@@ -52,7 +49,6 @@ class ApiService {
     }
   }
 
-  // Refresh access token using refresh token
   async refreshAccessToken() {
     try {
       const refreshToken = this.getRefreshToken();
@@ -74,7 +70,7 @@ class ApiService {
 
       const data = await response.json();
       
-      // Store new access token
+      
       this.storeTokens(data.access_token, data.refresh_token);
       
       return data.access_token;
@@ -85,7 +81,7 @@ class ApiService {
     }
   }
 
-  // Get valid access token (refresh if needed)
+  
   async getValidAccessToken() {
     let accessToken = this.getAccessToken();
     
@@ -981,6 +977,30 @@ async checkEmailVerificationStatus(email) {
 
   } catch (error) {
     console.error('Failed to check verification status:', error);
+    throw error;
+  }
+}
+async resumebuilder(endpoint, method = 'GET', data = null) {
+  try {
+    const options = {
+      method: method.toUpperCase(),
+    };
+
+    // Add data to request body for POST, PUT, PATCH methods
+    if (data && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+      options.body = JSON.stringify(data);
+    }
+
+    // Use your existing makeRequest method which handles auth, tokens, etc.
+    const response = await this.makeRequest(endpoint, options);
+    
+    return {
+      data: response,
+      success: true
+    };
+
+  } catch (error) {
+    console.error(`Resume API Error - ${method} ${endpoint}:`, error);
     throw error;
   }
 }

@@ -18,7 +18,7 @@ const ResumePreview = ({ resumeData }) => {
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };

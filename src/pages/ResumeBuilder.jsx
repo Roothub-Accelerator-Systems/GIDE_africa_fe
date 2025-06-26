@@ -32,6 +32,7 @@ import ResumeForm from '../components/Resume/ResumeForm';
 import ResumePreview from '../components/Resume/ResumePreview';
 import LoadingSpinner from '../components/Shared/LoadingSpinner';
 import ShareModal from '../components/Shared/ShareModal';
+import ApiService from '../components/Auth/ApiService''
 
 const ResumeBuilder = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -47,10 +48,122 @@ const ResumeBuilder = () => {
   const fileInputRef = useRef(null);
   const [previewData, setPreviewData] = useState({});
 
+ const [sectionData, setSectionData] = useState({
+  personal: {},
+  skills: {},
+  experience: {},
+  education: {},
+  summary: {}
+});
+const [savedSections, setSavedSections] = useState(new Set());
+
+useEffect(() => {
+  fetchExistingData();
+}, []);
+
+const fetchExistingData = async () => {
+  try {
+    setIsLoading(true);
+    // Fetch all sections data
+    const sections = ['personal-info', 'skills', 'experience', 'education', 'summary'];
+    
+    for (const section of sections) {
+      try {
+        const response = await ApiService.resumebuilder(`/resume/${section}`, 'GET');
+        if (response.data) {
+          const sectionKey = section === 'personal-info' ? 'personal' : section;
+          setSectionData(prev => ({
+            ...prev,
+            [sectionKey]: response.data
+          }));
+          setSavedSections(prev => new Set(prev).add(sectionKey));
+        }
+      } catch (error) {
+        // Section doesn't exist yet, that's fine
+        console.log(`No existing data for ${section}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching existing data:', error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const handleSectionSave = async (sectionName, data) => {
+  try {
+    setIsLoading(true);
+    
+    // Map section names to API endpoints
+    const endpointMap = {
+      'personal': 'personal-info',
+      'skills': 'skills',
+      'experience': 'experience', 
+      'education': 'education',
+      'summary': 'summary'
+    };
+    
+    const endpoint = `/resume/${endpointMap[sectionName]}`;
+    const response = await apiservice.resumebuilder(endpoint, 'POST', data);
+    
+    if (response.success) {
+      // Update local state with saved data
+      setSectionData(prev => ({
+        ...prev,
+        [sectionName]: data
+      }));
+      setSavedSections(prev => new Set(prev).add(sectionName));
+      
+      // Update preview data
+      handleUpdatePreview({
+        ...formData,
+        [sectionName]: data
+      });
+      
+      // Show success feedback
+      console.log(`${sectionName} section saved successfully`);
+    }
+  } catch (error) {
+    console.error(`Error saving ${sectionName} section:`, error);
+    // Handle error (show toast, etc.)
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const handleOverallSave = async () => {
+  try {
+    setIsLoading(true);
+    
+    const completeResumeData = {
+      ...formData,
+      ...sectionData,
+      template: activeTemplate
+    };
+    
+    const response = await apiservice.resumebuilder('/resume/save-resume', 'POST', completeResumeData);
+    
+    if (response.success) {
+      console.log('Resume saved successfully');
+      // Show success message or redirect
+    }
+  } catch (error) {
+    console.error('Error saving complete resume:', error);
+    // Handle error
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
   // Update preview handler
   const handleUpdatePreview = (data) => {
-    setPreviewData(data);
-    console.log("Updated preview data:", data);
+    const mergedData = {
+      ...sectionData,
+      ...data
+    };
+    setPreviewData(mergedData);
+    console.log("Updated preview data:", mergedData);
   };
   
   const [formData, setFormData] = useState({
@@ -202,7 +315,8 @@ const ResumeBuilder = () => {
                   className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm"
                   onClick={() => {
                     setIsLoading(true);
-                    setTimeout(() => setIsLoading(false), 1000); // Simulate saving
+                    setTimeout(() => setIsLoading(false), 1000);
+                    {handleOverallSave} // Simulate saving
                   }}
                 >
                   {isLoading ? (
@@ -257,7 +371,9 @@ const ResumeBuilder = () => {
                       
                     <ResumeForm 
                       activeSection={activeSection} 
-                      updatePreview={handleUpdatePreview} 
+                      updatePreview={handleUpdatePreview}
+                      onSectionSave={handleSectionSave}
+                      existingData={sectionData}
                     />
                     </motion.div>
                   </AnimatePresence>
@@ -387,9 +503,15 @@ const ResumeBuilder = () => {
                       </div>
                       <div className="p-4 h-full overflow-y-auto">
                         <ResumePreview 
-                          data={formData} 
-                          template={activeTemplate} 
-                        />
+                            resumeData={{
+                              sections: Object.keys(sectionData).map(key => ({
+                                id: key,
+                                ...sectionData[key]
+                              })),
+                              activeTemplate
+                            }}
+                            template={activeTemplate} 
+                          />
                       </div>
                     </motion.div>
                   )}
