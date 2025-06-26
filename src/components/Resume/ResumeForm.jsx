@@ -126,44 +126,44 @@ const [resumeData, setResumeData] = useState({
   activeTemplate: "modern",
 });
 
-    const handleSaveAndPreview = async () => {
-      const activeSectionData = resumeData.sections.find(section => section.id === activeSection);
-      
-      if (activeSectionData && onSectionSave) {
-        // Extract just the data fields (not the field definitions)
-        const sectionDataToSave = {};
-        
-        if (activeSectionData.fields) {
-          // For simple field sections
-          activeSectionData.fields.forEach(field => {
-            sectionDataToSave[field.name] = activeSectionData[field.name] || "";
-          });
-        }
-        
-        if (activeSectionData.items) {
-          // For array-based sections
-          sectionDataToSave.items = activeSectionData.items;
-        }
-        
-        // Transform data based on section type
-        let transformedData = sectionDataToSave;
-        
-        if (activeSection === 'personal') {
-          // Transform personal section field names to match API expectations
-          transformedData = {
-            resume_version_id: 1, // Add default or get from props/state
-            full_name: sectionDataToSave.fullName || "",
-            email: sectionDataToSave.email || "",
-            phone_number: sectionDataToSave.phone || "",
-            location: sectionDataToSave.location || "",
-            linkedin: sectionDataToSave.linkedin || "",
-            portfolio: sectionDataToSave.portfolio || ""
-          };
-        }
-        
-        await onSectionSave(activeSection, transformedData);
-      }
-    };
+   const handleSaveAndPreview = async () => {
+  const activeSectionData = resumeData.sections.find(section => section.id === activeSection);
+  
+  if (activeSectionData && onSectionSave) {
+    // Extract just the data fields (not the field definitions)
+    const sectionDataToSave = {};
+    
+    if (activeSectionData.fields) {
+      // For simple field sections
+      activeSectionData.fields.forEach(field => {
+        sectionDataToSave[field.name] = activeSectionData[field.name] || "";
+      });
+    }
+    
+    if (activeSectionData.items) {
+      // For array-based sections
+      sectionDataToSave.items = activeSectionData.items;
+    }
+    
+    // Transform data based on section type
+    let transformedData = sectionDataToSave;
+    
+    if (activeSection === 'personal') {
+      // Transform personal section field names to match API expectations
+      transformedData = {
+        resume_version_id: "1", // Add default or get from props/state
+        full_name: sectionDataToSave.fullName || "",
+        email: sectionDataToSave.email || "",
+        phone_number: sectionDataToSave.phone || "",
+        location: sectionDataToSave.location || "",
+        linkedin_url: sectionDataToSave.linkedin || "",
+        portfolio_url: sectionDataToSave.portfolio || ""
+      };
+    }
+    
+    await onSectionSave(activeSection, transformedData);
+  }
+};
 
   // Function to handle section data updates
   const updateSection = (sectionId, updatedSectionData) => {
