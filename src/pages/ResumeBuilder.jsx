@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import  { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, 
@@ -32,7 +32,7 @@ import ResumeForm from '../components/Resume/ResumeForm';
 import ResumePreview from '../components/Resume/ResumePreview';
 import LoadingSpinner from '../components/Shared/LoadingSpinner';
 import ShareModal from '../components/Shared/ShareModal';
-import ApiService from '../components/Auth/ApiService''
+import ApiService from '../components/Auth/ApiService';
 
 const ResumeBuilder = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -78,7 +78,7 @@ const fetchExistingData = async () => {
           }));
           setSavedSections(prev => new Set(prev).add(sectionKey));
         }
-      } catch (error) {
+      } catch  {
         // Section doesn't exist yet, that's fine
         console.log(`No existing data for ${section}`);
       }
@@ -104,7 +104,7 @@ const handleSectionSave = async (sectionName, data) => {
     };
     
     const endpoint = `/resume/${endpointMap[sectionName]}`;
-    const response = await apiservice.resumebuilder(endpoint, 'POST', data);
+    const response = await ApiService.resumebuilder(endpoint, 'POST', data);
     
     if (response.success) {
       // Update local state with saved data
@@ -141,7 +141,7 @@ const handleOverallSave = async () => {
       template: activeTemplate
     };
     
-    const response = await apiservice.resumebuilder('/resume/save-resume', 'POST', completeResumeData);
+    const response = await ApiService.resumebuilder('/resume/save-resume', 'POST', completeResumeData);
     
     if (response.success) {
       console.log('Resume saved successfully');
@@ -166,7 +166,7 @@ const handleOverallSave = async () => {
     console.log("Updated preview data:", mergedData);
   };
   
-  const [formData, setFormData] = useState({
+  const [formData,] = useState({
     personal: {},
     summary: {},
     education: [{}],
@@ -177,12 +177,12 @@ const handleOverallSave = async () => {
   const templates = ['modern', 'professional', 'creative', 'minimal'];
 
   // Handle form field changes
-  const handleFormChange = (section, value) => {
-    setFormData(prevData => ({
-      ...prevData,
-      [section]: value
-    }));
-  };
+  // const handleFormChange = (section, value) => {
+  //   setFormData(prevData => ({
+  //     ...prevData,
+  //     [section]: value
+  //   }));
+  // };
 
   // Animation variants
   const sectionAnimation = {
@@ -316,7 +316,7 @@ const handleOverallSave = async () => {
                   onClick={() => {
                     setIsLoading(true);
                     setTimeout(() => setIsLoading(false), 1000);
-                    {handleOverallSave} // Simulate saving
+                    handleOverallSave(); // Simulate saving
                   }}
                 >
                   {isLoading ? (
@@ -354,6 +354,9 @@ const handleOverallSave = async () => {
                     >
                       <span className="mr-2">{section.icon}</span>
                       <span className="text-sm sm:text-base">{section.name}</span>
+                      {savedSections.has(section.id) && (
+                        <span className="ml-2 w-2 h-2 bg-green-500 rounded-full" title="Saved"></span>
+                      )}
                     </motion.button>
                   ))}
                 </div>
