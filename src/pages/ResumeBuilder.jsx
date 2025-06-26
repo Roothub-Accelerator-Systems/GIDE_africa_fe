@@ -90,46 +90,78 @@ const fetchExistingData = async () => {
   }
 };
 
-const handleSectionSave = async (sectionName, data) => {
-  try {
-    setIsLoading(true);
-    
-    // Map section names to API endpoints
-    const endpointMap = {
-      'personal': 'personal-info',
-      'skills': 'skills',
-      'experience': 'experience', 
-      'education': 'education',
-      'summary': 'summary'
+    const handleSectionSave = async (sectionName, data) => {
+      try {
+        setIsLoading(true);
+        
+        // Map section names to API endpoints
+        const endpointMap = {
+          'personal': 'personal-info',
+          'skills': 'skills',
+          'experience': 'experience', 
+          'education': 'education',
+          'summary': 'summary'
+        };
+        
+        // Transform data based on section type
+        let transformedData = data;
+        
+        if (sectionName === 'personal') {
+          // Data is already transformed in ResumeForm
+          transformedData = data;
+        } else if (sectionName === 'skills') {
+          // Transform skills data if needed
+          transformedData = {
+            resume_version_id: 1, // Add default or get from props/state
+            skills: data.skills || ""
+          };
+        } else if (sectionName === 'experience') {
+          // Transform experience data if needed
+          transformedData = {
+            resume_version_id: 1,
+            experiences: data.items || []
+          };
+        } else if (sectionName === 'education') {
+          // Transform education data if needed
+          transformedData = {
+            resume_version_id: 1,
+            educations: data.items || []
+          };
+        } else if (sectionName === 'summary') {
+          // Transform summary data if needed
+          transformedData = {
+            resume_version_id: 1,
+            summary: data.summary || ""
+          };
+        }
+        
+        const endpoint = `/resume/${endpointMap[sectionName]}`;
+        const response = await ApiService.resumebuilder(endpoint, 'POST', transformedData);
+        
+        if (response.success) {
+          // Update local state with saved data
+          setSectionData(prev => ({
+            ...prev,
+            [sectionName]: data
+          }));
+          setSavedSections(prev => new Set(prev).add(sectionName));
+          
+          // Update preview data
+          handleUpdatePreview({
+            ...formData,
+            [sectionName]: data
+          });
+          
+          // Show success feedback
+          console.log(`${sectionName} section saved successfully`);
+        }
+      } catch (error) {
+        console.error(`Error saving ${sectionName} section:`, error);
+        // Handle error (show toast, etc.)
+      } finally {
+        setIsLoading(false);
+      }
     };
-    
-    const endpoint = `/resume/${endpointMap[sectionName]}`;
-    const response = await ApiService.resumebuilder(endpoint, 'POST', data);
-    
-    if (response.success) {
-      // Update local state with saved data
-      setSectionData(prev => ({
-        ...prev,
-        [sectionName]: data
-      }));
-      setSavedSections(prev => new Set(prev).add(sectionName));
-      
-      // Update preview data
-      handleUpdatePreview({
-        ...formData,
-        [sectionName]: data
-      });
-      
-      // Show success feedback
-      console.log(`${sectionName} section saved successfully`);
-    }
-  } catch (error) {
-    console.error(`Error saving ${sectionName} section:`, error);
-    // Handle error (show toast, etc.)
-  } finally {
-    setIsLoading(false);
-  }
-};
 
 const handleOverallSave = async () => {
   try {

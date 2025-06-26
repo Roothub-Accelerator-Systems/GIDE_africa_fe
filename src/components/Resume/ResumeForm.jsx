@@ -145,7 +145,23 @@ const [resumeData, setResumeData] = useState({
           sectionDataToSave.items = activeSectionData.items;
         }
         
-        await onSectionSave(activeSection, sectionDataToSave);
+        // Transform data based on section type
+        let transformedData = sectionDataToSave;
+        
+        if (activeSection === 'personal') {
+          // Transform personal section field names to match API expectations
+          transformedData = {
+            resume_version_id: 1, // Add default or get from props/state
+            full_name: sectionDataToSave.fullName || "",
+            email: sectionDataToSave.email || "",
+            phone_number: sectionDataToSave.phone || "",
+            location: sectionDataToSave.location || "",
+            linkedin: sectionDataToSave.linkedin || "",
+            portfolio: sectionDataToSave.portfolio || ""
+          };
+        }
+        
+        await onSectionSave(activeSection, transformedData);
       }
     };
 
@@ -204,54 +220,12 @@ const [resumeData, setResumeData] = useState({
     updateSection(sectionId, { items: updatedItems });
   };
 
-  // Function to handle job description upload
-  // const handleJobDescriptionUpload = (e) => {
-  //   const file = e.target.files[0];
-  //   if (!file) return;
 
-  //   // In a real app, this would process the file and extract keywords
-  //   console.log("Job description file uploaded:", file.name);
-    
-  //   // For demo purposes, just show a message
-  //   alert("Job description uploaded! In a real app, AI would analyze this to tailor your resume.");
-  // };
-
-  // Filter for active section only instead of showing all sections
   const activeSectionData = resumeData.sections.find(section => section.id === activeSection);
 
   return (
     <div className="flex flex-col">
-      {/* Job Description Upload - Only show on initial view or when appropriate */}
-      {/* {activeSection === "personal" && (
-        <div className="mb-6 bg-blue-50 dark:bg-gray-800 rounded-lg p-4 border border-blue-100 dark:border-gray-700">
-          <div className="flex flex-col md:flex-row md:items-center justify-between">
-            <div className="mb-4 md:mb-0">
-              <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300 flex items-center">
-                <Sparkles size={20} className="mr-2" />
-                Tailor Your Resume with AI
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Upload a job description to optimize your resume for specific positions.
-              </p>
-            </div>
-            <div className="flex">
-              <label className="cursor-pointer">
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.txt"
-                  onChange={handleJobDescriptionUpload}
-                />
-                <Button variant="outline" className="flex items-center">
-                  <Upload size={18} className="mr-2" />
-                  Upload Job Description
-                </Button>
-              </label>
-            </div>
-          </div>
-        </div>
-      )} */}
-
+  
       {/* Show only the active section */}
       {activeSectionData && (
         <div className="space-y-6">
