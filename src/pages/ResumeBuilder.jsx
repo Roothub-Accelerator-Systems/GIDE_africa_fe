@@ -112,13 +112,13 @@ const fetchExistingData = async () => {
         } else if (sectionName === 'skills') {
           // Transform skills data if needed
           transformedData = {
-            resume_version_id: 1, // Add default or get from props/state
+            resume_version_id: "1", // Add default or get from props/state
             skills: data.skills || ""
           };
         } else if (sectionName === 'experience') {
           // Transform experience data if needed
           transformedData = {
-            resume_version_id: 1,
+            resume_version_id: "1",
             experiences: data.items || []
           };
         } else if (sectionName === 'education') {
@@ -137,6 +137,7 @@ const fetchExistingData = async () => {
         
         const endpoint = `/resume/${endpointMap[sectionName]}`;
         const response = await ApiService.resumebuilder(endpoint, 'POST', transformedData);
+        console.log('Sending data to API:', transformedData);
         
         if (response.success) {
           // Update local state with saved data
@@ -161,6 +162,7 @@ const fetchExistingData = async () => {
       } finally {
         setIsLoading(false);
       }
+      
     };
 
 const handleOverallSave = async () => {
