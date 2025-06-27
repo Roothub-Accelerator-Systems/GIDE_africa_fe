@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle, XCircle, ArrowLeft, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, ArrowLeft, Loader2, Mail } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 // Mock ApiService for demonstration - replace with your actual ApiService
@@ -51,31 +51,26 @@ const EmailVerification = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [verificationStatus, setVerificationStatus] = useState('verifying'); // 'verifying', 'success', 'failed'
-  const [isLoading, setIsLoading] = useState(true);
+  const [verificationStatus, setVerificationStatus] = useState('waiting'); // 'waiting', 'checking', 'success', 'failed'
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [timeRemaining, setTimeRemaining] = useState(600); // 10 minutes in seconds
+  const [email, setEmail] = useState("");
+  const [token, setToken] = useState("");
 
-  // Verify email with token via backend
-  const verifyEmail = useCallback(async (token, email) => {
-    setIsLoading(true);
-    setVerificationStatus('verifying');
-    setErrorMessage("");
-
+  // Check verification status with GET request
+  const checkVerificationStatus = useCallback(async (verificationToken, userEmail) => {
     try {
-      console.log('Verifying email with token:', token.substring(0, 10) + '...');
+      console.log('Checking verification status for token:', verificationToken.substring(0, 10) + '...');
       
-      // Call backend to verify the token - this is the ONLY API call needed
-      const response = await ApiService.makeRequest('/auth/verify-email', {
-        method: 'POST',
-        body: JSON.stringify({
-          token: token,
-          email: email
-        })
+      // Use GET request to check verification status
+      const response = await ApiService.makeRequest(`/auth/verify-email?token=${verificationToken}&email=${encodeURIComponent(userEmail)}`, {
+        method: 'GET'
       });
 
-      console.log('Verification response:', response);
+      console.log('Verification check response:', response);
 
-      if (response.success || response.message?.includes('success')) {
+      if (response.success || response.verified || response.message?.includes('success')) {
         setVerificationStatus('success');
         
         // Store auth tokens if provided
@@ -93,62 +88,148 @@ const EmailVerification = () => {
           });
         }, 2000);
         
+        return true; // Verification successful
       } else {
-        setVerificationStatus('failed');
-        setErrorMessage(response.message || "Invalid or expired verification token.");
+        return false; // Not yet verified
       }
     } catch (error) {
-      console.error('Email verification error:', error);
-      setVerificationStatus('failed');
+      console.error('Verification check error:', error);
       
-      // Handle specific error cases
-      if (error.message.includes('400')) {
-        setErrorMessage("Invalid verification token format.");
-      } else if (error.message.includes('404')) {
-        setErrorMessage("Verification token not found or expired.");
-      } else if (error.message.includes('410')) {
-        setErrorMessage("Verification token has expired.");
-      } else if (error.message.includes('409')) {
-        setErrorMessage("Email is already verified.");
-      } else {
-        setErrorMessage("Verification failed. Please try again or contact support.");
+      // Don't set error status immediately, let the timer handle it
+      if (error.message.includes('404') || error.message.includes('410')) {
+        // Token not found or expired - this should trigger error
+        return 'expired';
       }
-    } finally {
-      setIsLoading(false);
+      
+      return false; // Continue checking
     }
   }, [navigate]);
 
-  // Handle verification from URL params (when user clicks email link)
+  // Start periodic verification checking
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
-    const token = urlParams.get('token');
-    const email = urlParams.get('email');
+    const urlToken = urlParams.get('token');
+    const urlEmail = urlParams.get('email');
 
-    console.log('URL params:', { token: token?.substring(0, 10) + '...', email });
+    console.log('URL params:', { token: urlToken?.substring(0, 10) + '...', email: urlEmail });
 
-    if (token && email) {
-      // Decode email if it's URL encoded
-      const decodedEmail = decodeURIComponent(email);
-      verifyEmail(token, decodedEmail);
+    if (urlToken && urlEmail) {
+      const decodedEmail = decodeURIComponent(urlEmail);
+      setToken(urlToken);
+      setEmail(decodedEmail);
+      setVerificationStatus('waiting');
+      
+      // Start checking verification status every 5 seconds
+      const checkInterval = setInterval(async () => {
+        setIsLoading(true);
+        setVerificationStatus('checking');
+        
+        const result = await checkVerificationStatus(urlToken, decodedEmail);
+        
+        setIsLoading(false);
+        
+        if (result === true) {
+          // Verification successful - interval will be cleared in cleanup
+          clearInterval(checkInterval);
+        } else if (result === 'expired') {
+          // Token expired
+          clearInterval(checkInterval);
+          setVerificationStatus('failed');
+          setErrorMessage("Verification token has expired. Please request a new verification email.");
+        } else {
+          // Not yet verified, continue waiting
+          setVerificationStatus('waiting');
+        }
+      }, 5000); // Check every 5 seconds
+
+      // Cleanup interval on unmount
+      return () => clearInterval(checkInterval);
+      
     } else {
       setVerificationStatus('failed');
       setErrorMessage("Missing verification token or email address.");
-      setIsLoading(false);
     }
-  }, [location.search, verifyEmail]);
+  }, [location.search, checkVerificationStatus]);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (verificationStatus === 'waiting' || verificationStatus === 'checking') {
+      const timer = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            // Time's up - show error
+            setVerificationStatus('failed');
+            setErrorMessage("Email verification timeout. Please check your email or request a new verification link.");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [verificationStatus]);
+
+  // Format time remaining
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Render verification result
   const renderVerificationResult = () => {
-    if (verificationStatus === 'verifying' && isLoading) {
+    if (verificationStatus === 'waiting') {
       return (
         <div className="text-center">
-          <Loader2 className="mx-auto h-16 w-16 text-blue-500 animate-spin" />
+          <Mail className="mx-auto h-16 w-16 text-blue-500" />
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
-            Verifying your email...
+            Please Verify Your Email
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Please wait while we verify your email address.
+            We've sent a verification email to <strong>{email}</strong>
           </p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            Please check your email and click the verification link to continue.
+          </p>
+          
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <p className="text-blue-700 dark:text-blue-400 text-sm">
+              Waiting for email verification...
+            </p>
+            <p className="text-blue-600 dark:text-blue-300 text-xs mt-1">
+              Time remaining: {formatTime(timeRemaining)}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (verificationStatus === 'checking') {
+      return (
+        <div className="text-center">
+          <div className="relative">
+            <Mail className="mx-auto h-16 w-16 text-blue-500" />
+            <Loader2 className="absolute -bottom-2 -right-2 h-6 w-6 text-blue-500 animate-spin" />
+          </div>
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
+            Checking Verification Status...
+          </h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Please wait while we check if your email has been verified.
+          </p>
+          
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="inline-flex items-center">
+              <Loader2 className="h-4 w-4 text-blue-500 animate-spin mr-2" />
+              <span className="text-blue-700 dark:text-blue-400 text-sm">
+                Checking verification...
+              </span>
+            </div>
+            <p className="text-blue-600 dark:text-blue-300 text-xs mt-1">
+              Time remaining: {formatTime(timeRemaining)}
+            </p>
+          </div>
         </div>
       );
     }
@@ -180,15 +261,25 @@ const EmailVerification = () => {
         <div className="text-center">
           <XCircle className="mx-auto h-16 w-16 text-red-500" />
           <h2 className="mt-6 text-3xl font-extrabold text-red-600">
-            Email Verification Failed
+            Email Verification Required
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {errorMessage || "We couldn't verify your email address."}
+            {errorMessage || "Please verify your email address to continue."}
           </p>
           
           <div className="mt-6 space-y-3">
             <Button 
+              onClick={() => {
+                // You can add logic here to resend verification email
+                window.location.reload();
+              }}
+              className="w-full"
+            >
+              Try Again
+            </Button>
+            <Button 
               onClick={() => navigate('/signup')} 
+              variant="outline"
               className="w-full"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -196,7 +287,7 @@ const EmailVerification = () => {
             </Button>
             <Button 
               onClick={() => navigate('/login')} 
-              variant="outline"
+              variant="ghost"
               className="w-full"
             >
               Go to Login
@@ -218,8 +309,9 @@ const EmailVerification = () => {
             <p><strong>Debug Info:</strong></p>
             <p>Status: {verificationStatus}</p>
             <p>Loading: {isLoading.toString()}</p>
-            <p>Token: {new URLSearchParams(location.search).get('token')?.substring(0, 20)}...</p>
-            <p>Email: {decodeURIComponent(new URLSearchParams(location.search).get('email') || '')}</p>
+            <p>Time Remaining: {formatTime(timeRemaining)}</p>
+            <p>Token: {token.substring(0, 20)}...</p>
+            <p>Email: {email}</p>
           </div>
         )}
       </div>
