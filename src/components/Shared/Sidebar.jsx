@@ -29,7 +29,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
     const fetchCurrentUser = async () => {
       try {
         // Use makeRequest instead of getCurrentUser
-        const response = await ApiService.makeRequest('/auth/current-user', {
+        const response = await ApiService.makeRequest('/auth/get_current_user', {
           method: 'GET'
         });
         const fetchedUserId = response.user_id || response.id; // Adjust based on your API response structure
