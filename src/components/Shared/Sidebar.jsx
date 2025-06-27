@@ -1,28 +1,83 @@
 import { Home, FileText, Plus, Palette, Mail, Settings, X, CreditCard } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import ApiService from "../Auth/ApiService"; // Import apiService
 
-const Sidebar = ({ isOpen, toggleSidebar }) => {
+const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreated }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  
+  const [userId, setUserId] = useState(null);
+  const [resumeVersionId, setResumeVersionId] = useState(null);
+
   const navItems = [
     { name: "Dashboard", icon: <Home size={20} />, path: "/dashboard" },
     { name: "My Resumes", icon: <FileText size={20} />, path: "/resumes" },
     { name: "Create Resume", icon: <Plus size={20} />, path: "/resume-builder" },
     { name: "Templates", icon: <Palette size={20} />, path: "/templates" },
     { name: "Cover Letter", icon: <Mail size={20} />, path: "/cover-letter" },
-    // { name: "Profile", icon: <User size={20} />, path: "/profile" },
-    { 
-      name: "Subscription", 
-      icon: <CreditCard size={20} />, 
+    {
+      name: "Subscription",
+      icon: <CreditCard size={20} />,
       path: "/subscription",
-      highlight: true 
+      highlight: true
     },
     { name: "Settings", icon: <Settings size={20} />, path: "/settings" }
   ];
-  
+
+  // Fetch user ID on component mount
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await ApiService.get('/auth/get_current_user');
+        const fetchedUserId = response.data.user_id || response.data.id; // Adjust based on your API response structure
+        setUserId(fetchedUserId);
+        
+        // Pass user ID to parent component if callback provided
+        if (onUserIdFetched) {
+          onUserIdFetched(fetchedUserId);
+        }
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      }
+    };
+
+    fetchCurrentUser();
+  }, [onUserIdFetched]);
+
+  // Create resume version when user navigates to resume builder
+  const createResumeVersion = async () => {
+    if (!userId) {
+      console.error('User ID not available');
+      return null;
+    }
+
+    try {
+      const response = await ApiService.post('/resume/create-resume', {
+        user_id: userId
+      });
+      
+      const versionId = response.data.resume_version_id || response.data.id; // Adjust based on your API response
+      setResumeVersionId(versionId);
+      
+      // Pass resume version ID to parent component if callback provided
+      if (onResumeVersionCreated) {
+        onResumeVersionCreated(versionId);
+      }
+      
+      return versionId;
+    } catch (error) {
+      console.error('Error creating resume version:', error);
+      return null;
+    }
+  };
+
   // Handle navigation based on device size
-  const handleNavigation = (path) => {
+  const handleNavigation = async (path) => {
+    // If navigating to resume builder, create resume version first
+    if (path === "/resume-builder" && userId && !resumeVersionId) {
+      await createResumeVersion();
+    }
+    
     navigate(path);
     
     // Only close the sidebar on mobile screens
@@ -30,7 +85,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       toggleSidebar();
     }
   };
-  
+
   return (
     <>
       {/* Semi-transparent overlay for mobile only - doesn't block content */}

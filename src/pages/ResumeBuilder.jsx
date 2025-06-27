@@ -1,4 +1,4 @@
-import  { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, 
@@ -48,165 +48,182 @@ const ResumeBuilder = () => {
   const fileInputRef = useRef(null);
   const [previewData, setPreviewData] = useState({});
 
- const [sectionData, setSectionData] = useState({
-  personal: {},
-  skills: {},
-  experience: {},
-  education: {},
-  summary: {}
-});
-const [savedSections, setSavedSections] = useState(new Set());
+  // ADD THESE NEW STATE VARIABLES FOR USER ID AND RESUME VERSION ID
+  const [userId, setUserId] = useState(null);
+  const [resumeVersionId, setResumeVersionId] = useState(null);
 
-// Replace the existing fetchExistingData function and useEffect with this:
+  const [sectionData, setSectionData] = useState({
+    personal: {},
+    skills: {},
+    experience: {},
+    education: {},
+    summary: {}
+  });
+  const [savedSections, setSavedSections] = useState(new Set());
 
-useEffect(() => {
-  // Only fetch data for the current active section when it changes
-  fetchSectionData(activeSection);
-}, [activeSection]);
+  // ADD THESE NEW CALLBACK FUNCTIONS FOR SIDEBAR
+  const handleUserIdFetched = (fetchedUserId) => {
+    setUserId(fetchedUserId);
+    console.log('User ID fetched:', fetchedUserId);
+  };
 
-const fetchSectionData = async (sectionName) => {
-  // Skip if we already have data for this section
-  if (sectionData[sectionName] && Object.keys(sectionData[sectionName]).length > 0) {
-    return;
-  }
+  const handleResumeVersionCreated = (versionId) => {
+    setResumeVersionId(versionId);
+    console.log('Resume version ID created:', versionId);
+  };
 
-  try {
-    setIsLoading(true);
-    
-    // Map section names to API endpoints
-    const endpointMap = {
-      'personal': 'personal-info',
-      'skills': 'skills',
-      'experience': 'experience', 
-      'education': 'education',
-      'summary': 'summary'
-    };
+  useEffect(() => {
+    // Only fetch data for the current active section when it changes
+    fetchSectionData(activeSection);
+  }, [activeSection, resumeVersionId]); // ADD resumeVersionId as dependency
 
-    const endpoint = endpointMap[sectionName];
-    if (!endpoint) return;
-
-    // Use POST request with appropriate payload to fetch existing data
-    const response = await ApiService.resumebuilder(`/resume/${endpoint}`, 'POST', {
-      resume_version_id: "1",
-      action: "fetch" // Add this to indicate we want to fetch existing data
-    });
-    
-    if (response.success && response.data) {
-      setSectionData(prev => ({
-        ...prev,
-        [sectionName]: response.data
-      }));
-      setSavedSections(prev => new Set(prev).add(sectionName));
-    } else {
-      // Section doesn't exist yet or error occurred
-      console.log(`No existing data for ${sectionName}:`, response.error || 'No data available');
+  const fetchSectionData = async (sectionName) => {
+    // WAIT FOR RESUME VERSION ID BEFORE FETCHING DATA
+    if (!resumeVersionId) {
+      console.log('Waiting for resume version ID...');
+      return;
     }
-  } catch (error) {
-    console.error(`Error fetching ${sectionName} data:`, error);
-  } finally {
-    setIsLoading(false);
-  }
-};
 
-// Update the handleSectionSave function to be more robust:
-const handleSectionSave = async (sectionName, data) => {
-  try {
-    setIsLoading(true);
-    
-    // Map section names to API endpoints
-    const endpointMap = {
-      'personal': 'personal-info',
-      'skills': 'skills',
-      'experience': 'experience', 
-      'education': 'education',
-      'summary': 'summary'
-    };
-    
-    // Transform data based on section type
-    let transformedData = data;
-    
-    if (sectionName === 'personal') {
-      // Data is already transformed in ResumeForm
-      transformedData = data;
-    } else if (sectionName === 'skills') {
-      transformedData = {
-        resume_version_id: "1",
-        skills: data.skills || ""
-      };
-    } else if (sectionName === 'experience') {
-      transformedData = {
-        resume_version_id: "1",
-        experiences: data.items || []
-      };
-    } else if (sectionName === 'education') {
-      transformedData = {
-        resume_version_id: "1",
-        educations: data.items || []
-      };
-    } else if (sectionName === 'summary') {
-      transformedData = {
-        resume_version_id: "1",
-        summary: data.summary || ""
-      };
+    // Skip if we already have data for this section
+    if (sectionData[sectionName] && Object.keys(sectionData[sectionName]).length > 0) {
+      return;
     }
-    
-    const endpoint = `/resume/${endpointMap[sectionName]}`;
-    console.log('Sending data to API:', transformedData);
-    
-    const response = await ApiService.resumebuilder(endpoint, 'POST', transformedData);
-    
-    if (response.success) {
-      // Update local state with saved data
-      setSectionData(prev => ({
-        ...prev,
-        [sectionName]: data
-      }));
-      setSavedSections(prev => new Set(prev).add(sectionName));
+
+    try {
+      setIsLoading(true);
       
-      // Update preview data
-      handleUpdatePreview({
-        ...sectionData,
-        [sectionName]: data
+      // Map section names to API endpoints
+      const endpointMap = {
+        'personal': 'personal-info',
+        'skills': 'skills',
+        'experience': 'experience', 
+        'education': 'education',
+        'summary': 'summary'
+      };
+
+      const endpoint = endpointMap[sectionName];
+      if (!endpoint) return;
+
+      // Use POST request with appropriate payload to fetch existing data
+      const response = await ApiService.resumebuilder(`/resume/${endpoint}`, 'POST', {
+        resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
+        user_id: userId, // ADD USER ID
+        action: "fetch" // Add this to indicate we want to fetch existing data
       });
       
-      // Show success feedback
-      console.log(`${sectionName} section saved successfully`);
-    } else {
-      console.error(`Failed to save ${sectionName}:`, response.error);
-      // Show error message to user
+      if (response.success && response.data) {
+        setSectionData(prev => ({
+          ...prev,
+          [sectionName]: response.data
+        }));
+        setSavedSections(prev => new Set(prev).add(sectionName));
+      } else {
+        console.log(`No existing data for ${sectionName}:`, response.error || 'No data available');
+      }
+    } catch (error) {
+      console.error(`Error fetching ${sectionName} data:`, error);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error(`Error saving ${sectionName} section:`, error);
-    // Handle error (show toast, etc.)
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
-const handleOverallSave = async () => {
-  try {
-    setIsLoading(true);
-    
-    const completeResumeData = {
-      ...formData,
-      ...sectionData,
-      template: activeTemplate
-    };
-    
-    const response = await ApiService.resumebuilder('/resume/save-resume', 'POST', completeResumeData);
-    
-    if (response.success) {
-      console.log('Resume saved successfully');
-      // Show success message or redirect
+  // UPDATE THE HANDLE SECTION SAVE FUNCTION
+  const handleSectionSave = async (sectionName, data) => {
+    try {
+      setIsLoading(true);
+      
+      // Map section names to API endpoints
+      const endpointMap = {
+        'personal': 'personal-info',
+        'skills': 'skills',
+        'experience': 'experience', 
+        'education': 'education',
+        'summary': 'summary'
+      };
+      
+      // Transform data based on section type
+      let transformedData = data;
+      
+      if (sectionName === 'personal') {
+        // Data is already transformed in ResumeForm with actual resume_version_id and user_id
+        transformedData = data;
+      } else if (sectionName === 'skills') {
+        transformedData = {
+          resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
+          user_id: userId, // ADD USER ID
+          skills: data.skills || ""
+        };
+      } else if (sectionName === 'experience') {
+        transformedData = {
+          resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
+          user_id: userId, // ADD USER ID
+          experiences: data.items || []
+        };
+      } else if (sectionName === 'education') {
+        transformedData = {
+          resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
+          user_id: userId, // ADD USER ID
+          educations: data.items || []
+        };
+      } else if (sectionName === 'summary') {
+        transformedData = {
+          resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
+          user_id: userId, // ADD USER ID
+          summary: data.summary || ""
+        };
+      }
+      
+      const endpoint = `/resume/${endpointMap[sectionName]}`;
+      console.log('Sending data to API:', transformedData);
+      
+      const response = await ApiService.resumebuilder(endpoint, 'POST', transformedData);
+      
+      if (response.success) {
+        setSectionData(prev => ({
+          ...prev,
+          [sectionName]: data
+        }));
+        setSavedSections(prev => new Set(prev).add(sectionName));
+        
+        handleUpdatePreview({
+          ...sectionData,
+          [sectionName]: data
+        });
+        
+        console.log(`${sectionName} section saved successfully`);
+      } else {
+        console.error(`Failed to save ${sectionName}:`, response.error);
+      }
+    } catch (error) {
+      console.error(`Error saving ${sectionName} section:`, error);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Error saving complete resume:', error);
-    // Handle error
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
+  const handleOverallSave = async () => {
+    try {
+      setIsLoading(true);
+      
+      const completeResumeData = {
+        ...formData,
+        ...sectionData,
+        template: activeTemplate,
+        resume_version_id: resumeVersionId, // ADD RESUME VERSION ID
+        user_id: userId // ADD USER ID
+      };
+      
+      const response = await ApiService.resumebuilder('/resume/save-resume', 'POST', completeResumeData);
+      
+      if (response.success) {
+        console.log('Resume saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving complete resume:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Update preview handler
   const handleUpdatePreview = (data) => {
@@ -222,19 +239,12 @@ const handleOverallSave = async () => {
     personal: {},
     summary: {},
     education: [{}],
-    skills: []});
+    skills: []
+  });
 
   // Mock template data
   const [activeTemplate, setActiveTemplate] = useState('modern');
   const templates = ['modern', 'professional', 'creative', 'minimal'];
-
-  // Handle form field changes
-  // const handleFormChange = (section, value) => {
-  //   setFormData(prevData => ({
-  //     ...prevData,
-  //     [section]: value
-  //   }));
-  // };
 
   // Animation variants
   const sectionAnimation = {
@@ -269,7 +279,6 @@ const handleOverallSave = async () => {
   const handleShareClick = () => {
     setIsShareLoading(true);
     
-    // Short delay before showing modal to indicate loading
     setTimeout(() => {
       setIsShareLoading(false);
       setShareModalOpen(true);
@@ -286,9 +295,7 @@ const handleOverallSave = async () => {
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
-      // Process the file here
       console.log("File uploaded:", file.name);
-      // Add logic to handle the file
     }
   };
 
@@ -313,7 +320,6 @@ const handleOverallSave = async () => {
     { id: 'experience', name: 'Experience', icon: <Briefcase size={20} /> },
     { id: 'education', name: 'Education', icon: <GraduationCap size={20} /> },
     { id: 'summary', name: 'Summary', icon: <MessageSquareText size={20} /> },  
-    // { id: 'certifications', name: 'Certifications', icon: <Award size={20} /> }
   ];
 
   // Preview display and hide handlers
@@ -324,7 +330,6 @@ const handleOverallSave = async () => {
   // Handle download click
   const handleDownloadClick = () => {
     console.log("Downloading resume...");
-    // Add actual download logic here
   };
 
   return (
@@ -333,8 +338,13 @@ const handleOverallSave = async () => {
       <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
       
       <div className="flex flex-1 pt-7 overflow-hidden">
-        {/* Sidebar */}
-        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        {/* UPDATE SIDEBAR WITH NEW CALLBACK PROPS */}
+        <Sidebar 
+          isOpen={isSidebarOpen} 
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onUserIdFetched={handleUserIdFetched}
+          onResumeVersionCreated={handleResumeVersionCreated}
+        />
         
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
@@ -368,7 +378,7 @@ const handleOverallSave = async () => {
                   onClick={() => {
                     setIsLoading(true);
                     setTimeout(() => setIsLoading(false), 1000);
-                    handleOverallSave(); // Simulate saving
+                    handleOverallSave();
                   }}
                 >
                   {isLoading ? (
@@ -423,13 +433,15 @@ const handleOverallSave = async () => {
                       exit="exit"
                       variants={sectionAnimation}
                     >
-                      
-                    <ResumeForm 
-                      activeSection={activeSection} 
-                      updatePreview={handleUpdatePreview}
-                      onSectionSave={handleSectionSave}
-                      existingData={sectionData}
-                    />
+                      {/* UPDATE RESUME FORM WITH NEW PROPS */}
+                      <ResumeForm 
+                        activeSection={activeSection} 
+                        updatePreview={handleUpdatePreview}
+                        onSectionSave={handleSectionSave}
+                        existingData={sectionData}
+                        userId={userId}
+                        resumeVersionId={resumeVersionId}
+                      />
                     </motion.div>
                   </AnimatePresence>
                 </div>
