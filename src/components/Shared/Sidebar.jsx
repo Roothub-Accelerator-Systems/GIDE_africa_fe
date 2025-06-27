@@ -28,8 +28,11 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const response = await ApiService.get('/auth/get_current_user');
-        const fetchedUserId = response.data.user_id || response.data.id; // Adjust based on your API response structure
+        // Use makeRequest instead of getCurrentUser
+        const response = await ApiService.makeRequest('/auth/current-user', {
+          method: 'GET'
+        });
+        const fetchedUserId = response.user_id || response.id; // Adjust based on your API response structure
         setUserId(fetchedUserId);
         
         // Pass user ID to parent component if callback provided
@@ -52,11 +55,15 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
     }
 
     try {
-      const response = await ApiService.post('/resume/create-resume', {
-        user_id: userId
+      // Use makeRequest with proper method and body
+      const response = await ApiService.makeRequest('/resume/create-resume', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: userId
+        })
       });
       
-      const versionId = response.data.resume_version_id || response.data.id; // Adjust based on your API response
+      const versionId = response.resume_version_id || response.id; // Adjust based on your API response
       setResumeVersionId(versionId);
       
       // Pass resume version ID to parent component if callback provided
