@@ -64,7 +64,13 @@ const EmailVerification = () => {
       console.log('Checking verification status for token:', verificationToken.substring(0, 10) + '...');
       
       // Use GET request to check verification status
-      const response = await ApiService.makeRequest(`/auth/verify-email?token=${verificationToken}&email=${encodeURIComponent(userEmail)}`, {
+      // If email is not available, send just the token
+      const queryParams = new URLSearchParams({ token: verificationToken });
+      if (userEmail) {
+        queryParams.append('email', userEmail);
+      }
+      
+      const response = await ApiService.makeRequest(`/auth/verify-email?${queryParams.toString()}`, {
         method: 'GET'
       });
 
@@ -108,14 +114,18 @@ const EmailVerification = () => {
   // Start periodic verification checking
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
-    const urlToken = urlParams.get('token');
-    const urlEmail = urlParams.get('email');
+    const token = urlParams.get('token');
+    const email = urlParams.get('email');
 
-    console.log('URL params:', { token: urlToken?.substring(0, 10) + '...', email: urlEmail });
+    console.log('URL params:', { 
+      token: token ? token.substring(0, 10) + '...' : 'null', 
+      email: email || 'null' 
+    });
 
-    if (urlToken && urlEmail) {
-      const decodedEmail = decodeURIComponent(urlEmail);
-      setToken(urlToken);
+    if (token) {
+      // Email might be optional or retrieved from elsewhere
+      const decodedEmail = email ? decodeURIComponent(email) : '';
+      setToken(token);
       setEmail(decodedEmail);
       setVerificationStatus('waiting');
       
@@ -124,7 +134,7 @@ const EmailVerification = () => {
         setIsLoading(true);
         setVerificationStatus('checking');
         
-        const result = await checkVerificationStatus(urlToken, decodedEmail);
+        const result = await checkVerificationStatus(token, decodedEmail);
         
         setIsLoading(false);
         
@@ -147,7 +157,7 @@ const EmailVerification = () => {
       
     } else {
       setVerificationStatus('failed');
-      setErrorMessage("Missing verification token or email address.");
+      setErrorMessage("Missing verification token. Please use the link from your email.");
     }
   }, [location.search, checkVerificationStatus]);
 
@@ -187,7 +197,11 @@ const EmailVerification = () => {
             Please Verify Your Email
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            We've sent a verification email to <strong>{email}</strong>
+            {email ? (
+              <>We've sent a verification email to <strong>{email}</strong></>
+            ) : (
+              'We\'ve sent a verification email to your registered email address'
+            )}
           </p>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Please check your email and click the verification link to continue.
