@@ -138,7 +138,8 @@ async makeRequest(endpoint, options = {}) {
       '/auth/reset-password',
       '/auth/verify-code',
       '/auth/google-sign-in',
-      '/auth/google-sign-up'
+      '/auth/google-sign-up',
+      '/auth/verify-email'
     ];
     
     const isPublicEndpoint = publicEndpoints.some(ep => endpoint.startsWith(ep));
@@ -843,7 +844,7 @@ async generateVerificationToken(email) {
       throw new Error('Please provide a valid email address');
     }
 
-    const response = await this.makeRequest('/auth/generate-verification-token', {
+    const response = await this.makeRequest('/auth/verify-email', {
       method: 'POST',
       body: JSON.stringify({
         email: email.trim().toLowerCase(),
@@ -920,7 +921,7 @@ async resendVerificationEmail(email) {
       throw new Error('Please provide a valid email address');
     }
 
-    const response = await this.makeRequest('/auth/resend-verification', {
+    const response = await this.makeRequest('/auth/verify-email', {
       method: 'POST',
       body: JSON.stringify({
         email: email.trim().toLowerCase(),
@@ -960,7 +961,7 @@ async checkEmailVerificationStatus(email) {
       throw new Error('Please provide a valid email address');
     }
 
-    const response = await this.makeRequest('/auth/check-verification-status', {
+    const response = await this.makeRequest('/auth/verify-email', {
       method: 'POST',
       body: JSON.stringify({
         email: email.trim().toLowerCase(),
