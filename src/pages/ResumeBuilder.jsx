@@ -176,7 +176,10 @@ const ResumeBuilder = () => {
       const endpoint = `/resume/${endpointMap[sectionName]}`;
       console.log('Sending data to API:', transformedData);
       
-      const response = await ApiService.resumebuilder(endpoint, 'POST', transformedData);
+      const response = await ApiService.makeRequest(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(transformedData)
+      });
       
       if (response.success) {
         setSectionData(prev => ({
