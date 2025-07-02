@@ -55,16 +55,15 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
     }
 
     try {
-      // Use makeRequest with proper method and body
-      const response = await ApiService.makeRequest('/resume/create-resume', {
+      // FIXED: Pass user_id as query parameter and title in body
+      const response = await ApiService.makeRequest(`/resume/create-resume?user_id=${userId}`, {
         method: 'POST',
         body: JSON.stringify({
-          user_id: userId,
-          title: "professional"
+          title: "professional"  // Only title goes in the request body
         })
       });
       
-      const versionId = response.resume_version_id || response.resume_version_id; // Adjust based on your API response
+      const versionId = response.resume_version_id || response.id; // Adjust based on your API response
       setResumeVersionId(versionId);
       
       // Pass resume version ID to parent component if callback provided
@@ -72,6 +71,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
         onResumeVersionCreated(versionId);
       }
       
+      console.log('Resume version created successfully:', versionId);
       return versionId;
     } catch (error) {
       console.error('Error creating resume version:', error);
