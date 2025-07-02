@@ -59,11 +59,12 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
       const response = await ApiService.makeRequest('/resume/create-resume', {
         method: 'POST',
         body: JSON.stringify({
-          user_id: userId
+          user_id: userId,
+          title: "professional"
         })
       });
       
-      const versionId = response.resume_version_id || response.id; // Adjust based on your API response
+      const versionId = response.resume_version_id || response.resume_version_id; // Adjust based on your API response
       setResumeVersionId(versionId);
       
       // Pass resume version ID to parent component if callback provided
