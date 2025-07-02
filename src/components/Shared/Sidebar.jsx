@@ -1,7 +1,7 @@
 import { Home, FileText, Plus, Palette, Mail, Settings, X, CreditCard } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import ApiService from "../Auth/ApiService"; // Import apiService
+import ApiService from "../Auth/ApiService"; 
 
 const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreated }) => {
   const location = useLocation();
