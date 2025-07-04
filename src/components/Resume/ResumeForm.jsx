@@ -8,8 +8,8 @@ const ResumeForm = ({
   activeSection, 
   onSectionSave, 
   existingData = {}, 
-  resumeVersionId = null, // New prop to receive resume version ID from parent
-  userId = null // New prop to receive user ID from parent
+  resumeVersionId = null, 
+  userId = null 
 }) => {
   // Initial resume data structure
   const [resumeData, setResumeData] = useState({
@@ -25,7 +25,6 @@ const ResumeForm = ({
           { name: "linkedin", label: "LinkedIn URL", placeholder: "linkedin.com/in/johndoe" },
           { name: "portfolio", label: "Portfolio/Website", placeholder: "johndoe.com" },
         ],
-        // Pre-populate with existing data
         ...existingData.personal,
       },
       {
@@ -42,7 +41,6 @@ const ResumeForm = ({
             helpText: "Aim for 3-5 sentences that highlight your experience and strengths."
           },
         ],
-        // Pre-populate with existing data
         ...existingData.summary,
         aiSuggestion: true,
       },
@@ -125,7 +123,6 @@ const ResumeForm = ({
             helpText: "Example: JavaScript, React, Python, Project Management, Leadership"
           },
         ],
-        // Pre-populate with existing data
         ...existingData.skills,
         aiSuggestion: true,
       },
@@ -133,10 +130,38 @@ const ResumeForm = ({
     activeTemplate: "modern",
   });
 
+  // Validation function to check if required fields are filled
+  const validateSectionData = (sectionData, fields) => {
+    const errors = [];
+    
+    if (fields) {
+      fields.forEach(field => {
+        if (field.required && (!sectionData[field.name] || sectionData[field.name].trim() === '')) {
+          errors.push(`${field.label} is required`);
+        }
+      });
+    }
+    
+    return errors;
+  };
+
   const handleSaveAndPreview = async () => {
+    // Check if we have the required IDs
+    if (!resumeVersionId || !userId) {
+      alert("Please wait for the resume to initialize before saving.");
+      return;
+    }
+
     const activeSectionData = resumeData.sections.find(section => section.id === activeSection);
     
     if (activeSectionData && onSectionSave) {
+      // Validate required fields
+      const validationErrors = validateSectionData(activeSectionData, activeSectionData.fields);
+      if (validationErrors.length > 0) {
+        alert(`Please fill in the following required fields:\n${validationErrors.join('\n')}`);
+        return;
+      }
+
       // Extract just the data fields (not the field definitions)
       const sectionDataToSave = {};
       
@@ -156,9 +181,8 @@ const ResumeForm = ({
       let transformedData = sectionDataToSave;
       
       if (activeSection === 'personal') {
-        
         transformedData = {
-          resume_version_id: resumeVersionId || "1", 
+          resume_version_id: resumeVersionId, // Use actual resume version ID
           user_id: userId, 
           full_name: sectionDataToSave.fullName || "",
           email: sectionDataToSave.email || "",
@@ -168,14 +192,14 @@ const ResumeForm = ({
           portfolio_url: sectionDataToSave.portfolio || ""
         };
       } else {
-        
         transformedData = {
           ...transformedData,
-          resume_version_id: resumeVersionId || "1",
+          resume_version_id: resumeVersionId, // Use actual resume version ID
           user_id: userId
         };
       }
       
+      console.log('Saving section data:', transformedData);
       await onSectionSave(activeSection, transformedData);
     }
   };
@@ -239,6 +263,15 @@ const ResumeForm = ({
 
   return (
     <div className="flex flex-col">
+      {/* Show status if IDs are missing */}
+      {(!resumeVersionId || !userId) && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-yellow-800 text-sm">
+            Initializing resume... Please wait before saving.
+          </p>
+        </div>
+      )}
+
       {/* Show only the active section */}
       {activeSectionData && (
         <div className="space-y-6">
@@ -255,9 +288,13 @@ const ResumeForm = ({
         </div>
       )}
 
-      {/* Save/Export Button - Can be conditionally shown as needed */}
+      {/* Save/Export Button */}
       <div className="mt-8 flex justify-center">
-        <Button onClick={handleSaveAndPreview} className="flex items-center px-6">
+        <Button 
+          onClick={handleSaveAndPreview} 
+          className="flex items-center px-6"
+          disabled={!resumeVersionId || !userId}
+        >
           <FileText size={18} className="mr-2" />
           Save & Preview Resume
         </Button>

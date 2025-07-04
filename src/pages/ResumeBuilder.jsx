@@ -48,9 +48,10 @@ const ResumeBuilder = () => {
   const fileInputRef = useRef(null);
   const [previewData, setPreviewData] = useState({});
 
-  // ADD THESE NEW STATE VARIABLES FOR USER ID AND RESUME VERSION ID
+  // State variables for user ID and resume version ID
   const [userId, setUserId] = useState(null);
   const [resumeVersionId, setResumeVersionId] = useState(null);
+  const [initializationComplete, setInitializationComplete] = useState(false);
 
   const [sectionData, setSectionData] = useState({
     personal: {},
@@ -61,7 +62,73 @@ const ResumeBuilder = () => {
   });
   const [savedSections, setSavedSections] = useState(new Set());
 
-  // ADD THESE NEW CALLBACK FUNCTIONS FOR SIDEBAR
+  // Initialize resume on component mount
+  useEffect(() => {
+    initializeResume();
+  }, []);
+
+  // Initialize resume by creating a new resume version
+  const initializeResume = async () => {
+    try {
+      setIsLoading(true);
+      
+      // First, get the user ID from authentication or storage
+      const currentUserId = await getCurrentUserId();
+      if (!currentUserId) {
+        console.error('No user ID found');
+        return;
+      }
+      
+      setUserId(currentUserId);
+      
+      // Create a new resume version
+      const resumeData = {
+        title: `Resume - ${new Date().toLocaleDateString()}`,
+        user_id: currentUserId
+      };
+      
+      const response = await ApiService.resumebuilder('/resume/create-resume', 'POST', resumeData);
+      
+      if (response.success && response.data) {
+        const newResumeVersionId = response.data.resume_version_id || response.data.id;
+        setResumeVersionId(newResumeVersionId);
+        setInitializationComplete(true);
+        console.log('Resume initialized with ID:', newResumeVersionId);
+      } else {
+        console.error('Failed to create resume:', response.error);
+      }
+    } catch (error) {
+      console.error('Error initializing resume:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get current user ID - you'll need to implement this based on your auth system
+  const getCurrentUserId = async () => {
+    try {
+      // This should get the user ID from your authentication system
+      // For example, from localStorage, context, or API call
+      const userData = localStorage.getItem('userData');
+      if (userData) {
+        const parsedData = JSON.parse(userData);
+        return parsedData.user_id || parsedData.id;
+      }
+      
+      // Alternative: Make API call to get current user
+      const userResponse = await ApiService.makeRequest('/auth/me', { method: 'GET' });
+      if (userResponse.success) {
+        return userResponse.data.user_id || userResponse.data.id;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting user ID:', error);
+      return null;
+    }
+  };
+
+  // Callback functions for sidebar
   const handleUserIdFetched = (fetchedUserId) => {
     setUserId(fetchedUserId);
     console.log('User ID fetched:', fetchedUserId);
@@ -74,13 +141,15 @@ const ResumeBuilder = () => {
 
   useEffect(() => {
     // Only fetch data for the current active section when it changes
-    fetchSectionData(activeSection);
-  }, [activeSection, resumeVersionId]); // ADD resumeVersionId as dependency
+    if (initializationComplete && resumeVersionId) {
+      fetchSectionData(activeSection);
+    }
+  }, [activeSection, resumeVersionId, initializationComplete]);
 
   const fetchSectionData = async (sectionName) => {
-    // WAIT FOR RESUME VERSION ID BEFORE FETCHING DATA
-    if (!resumeVersionId) {
-      console.log('Waiting for resume version ID...');
+    // Wait for initialization to complete
+    if (!resumeVersionId || !userId) {
+      console.log('Waiting for initialization...');
       return;
     }
 
@@ -106,9 +175,9 @@ const ResumeBuilder = () => {
 
       // Use POST request with appropriate payload to fetch existing data
       const response = await ApiService.resumebuilder(`/resume/${endpoint}`, 'POST', {
-        resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
-        user_id: userId, // ADD USER ID
-        action: "fetch" // Add this to indicate we want to fetch existing data
+        resume_version_id: resumeVersionId,
+        user_id: userId,
+        action: "fetch"
       });
       
       if (response.success && response.data) {
@@ -127,7 +196,7 @@ const ResumeBuilder = () => {
     }
   };
 
-  // UPDATE THE HANDLE SECTION SAVE FUNCTION
+  // Handle section save function
   const handleSectionSave = async (sectionName, data) => {
     try {
       setIsLoading(true);
@@ -145,30 +214,30 @@ const ResumeBuilder = () => {
       let transformedData = data;
       
       if (sectionName === 'personal') {
-        // Data is already transformed in ResumeForm with actual resume_version_id and user_id
+        // Data is already transformed in ResumeForm
         transformedData = data;
       } else if (sectionName === 'skills') {
         transformedData = {
-          resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
-          user_id: userId, // ADD USER ID
+          resume_version_id: resumeVersionId,
+          user_id: userId,
           skills: data.skills || ""
         };
       } else if (sectionName === 'experience') {
         transformedData = {
-          resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
-          user_id: userId, // ADD USER ID
+          resume_version_id: resumeVersionId,
+          user_id: userId,
           experiences: data.items || []
         };
       } else if (sectionName === 'education') {
         transformedData = {
-          resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
-          user_id: userId, // ADD USER ID
+          resume_version_id: resumeVersionId,
+          user_id: userId,
           educations: data.items || []
         };
       } else if (sectionName === 'summary') {
         transformedData = {
-          resume_version_id: resumeVersionId, // USE ACTUAL RESUME VERSION ID
-          user_id: userId, // ADD USER ID
+          resume_version_id: resumeVersionId,
+          user_id: userId,
           summary: data.summary || ""
         };
       }
@@ -176,10 +245,7 @@ const ResumeBuilder = () => {
       const endpoint = `/resume/${endpointMap[sectionName]}`;
       console.log('Sending data to API:', transformedData);
       
-      const response = await ApiService.makeRequest(endpoint, {
-        method: 'POST',
-        body: JSON.stringify(transformedData)
-      });
+      const response = await ApiService.resumebuilder(endpoint, 'POST', transformedData);
       
       if (response.success) {
         setSectionData(prev => ({
@@ -196,9 +262,11 @@ const ResumeBuilder = () => {
         console.log(`${sectionName} section saved successfully`);
       } else {
         console.error(`Failed to save ${sectionName}:`, response.error);
+        alert(`Failed to save ${sectionName}. Please try again.`);
       }
     } catch (error) {
       console.error(`Error saving ${sectionName} section:`, error);
+      alert(`Error saving ${sectionName}. Please check your connection and try again.`);
     } finally {
       setIsLoading(false);
     }
