@@ -1,7 +1,7 @@
 import { Home, FileText, Plus, Palette, Mail, Settings, X, CreditCard } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import ApiService from "../Auth/ApiService"; 
+import ApiService from "../Auth/ApiService";
 
 const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreated }) => {
   const location = useLocation();
@@ -24,28 +24,62 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
     { name: "Settings", icon: <Settings size={20} />, path: "/settings" }
   ];
 
+  // Enhanced authentication check function
+  const checkAuthAndProceed = async (callback) => {
+    const token = ApiService.getAccessToken();
+    
+    if (!token || ApiService.isTokenExpired(token)) {
+      console.error('No valid authentication token found');
+      alert('Your session has expired. Please log in again.');
+      navigate('/login');
+      return false;
+    }
+    
+    try {
+      if (callback) {
+        await callback();
+      }
+      return true;
+    } catch (error) {
+      if (error.message.includes('401') || error.message.includes('unauthorized')) {
+        console.error('Authentication failed:', error);
+        alert('Your session has expired. Please log in again.');
+        navigate('/login');
+        return false;
+      }
+      throw error; // Re-throw non-auth errors
+    }
+  };
+
   // Fetch user ID on component mount
   useEffect(() => {
     const fetchCurrentUser = async () => {
-      try {
-        // Use makeRequest instead of getCurrentUser
-        const response = await ApiService.makeRequest('/auth/get_current_user', {
-          method: 'GET'
-        });
-        const fetchedUserId = response.user_id || response.id; // Adjust based on your API response structure
-        setUserId(fetchedUserId);
-        
-        // Pass user ID to parent component if callback provided
-        if (onUserIdFetched) {
-          onUserIdFetched(fetchedUserId);
+      const success = await checkAuthAndProceed(async () => {
+        try {
+          const response = await ApiService.makeRequest('/auth/get_current_user', {
+            method: 'GET'
+          });
+          
+          const fetchedUserId = response.user_id || response.id;
+          setUserId(fetchedUserId);
+          
+          // Pass user ID to parent component if callback provided
+          if (onUserIdFetched) {
+            onUserIdFetched(fetchedUserId);
+          }
+        } catch (error) {
+          console.error('Error fetching current user:', error);
+          throw error;
         }
-      } catch (error) {
-        console.error('Error fetching current user:', error);
+      });
+      
+      if (!success) {
+        console.log('Failed to fetch user due to authentication issues');
       }
     };
 
     fetchCurrentUser();
-  }, [onUserIdFetched]);
+  }, [onUserIdFetched, navigate]);
 
   // Create resume version when user navigates to resume builder
   const createResumeVersion = async () => {
@@ -54,36 +88,50 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
       return null;
     }
 
-    try {
-      // FIXED: Pass user_id as query parameter and title in body
-      const response = await ApiService.makeRequest(`/resume/create-resume?user_id=${userId}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          title: "professional"  // Only title goes in the request body
-        })
-      });
-      
-      const versionId = response.resume_version_id || response.id; // Adjust based on your API response
-      setResumeVersionId(versionId);
-      
-      // Pass resume version ID to parent component if callback provided
-      if (onResumeVersionCreated) {
-        onResumeVersionCreated(versionId);
+    return await checkAuthAndProceed(async () => {
+      try {
+        const response = await ApiService.makeRequest(`/resume/create-resume?user_id=${userId}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            title: "professional"
+          })
+        });
+        
+        const versionId = response.resume_version_id || response.id;
+        setResumeVersionId(versionId);
+        
+        // Pass resume version ID to parent component if callback provided
+        if (onResumeVersionCreated) {
+          onResumeVersionCreated(versionId);
+        }
+        
+        console.log('Resume version created successfully:', versionId);
+        return versionId;
+      } catch (error) {
+        console.error('Error creating resume version:', error);
+        throw error;
       }
-      
-      console.log('Resume version created successfully:', versionId);
-      return versionId;
-    } catch (error) {
-      console.error('Error creating resume version:', error);
-      return null;
-    }
+    });
   };
 
   // Handle navigation based on device size
   const handleNavigation = async (path) => {
+    // Check authentication before navigation
+    const token = ApiService.getAccessToken();
+    if (!token || ApiService.isTokenExpired(token)) {
+      console.error('No valid authentication token found');
+      alert('Your session has expired. Please log in again.');
+      navigate('/login');
+      return;
+    }
+
     // If navigating to resume builder, create resume version first
     if (path === "/resume-builder" && userId && !resumeVersionId) {
-      await createResumeVersion();
+      const versionId = await createResumeVersion();
+      if (!versionId) {
+        console.error('Failed to create resume version');
+        return;
+      }
     }
     
     navigate(path);

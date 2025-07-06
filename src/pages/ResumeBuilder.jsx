@@ -68,7 +68,36 @@ const ResumeBuilder = () => {
   }, []);
 
   // Initialize resume by creating a new resume version
-  const initializeResume = async () => {
+// Add this authentication check utility at the top of your ResumeBuilder component
+const checkAuthAndProceed = async (callback, navigate) => {
+  const token = ApiService.getAccessToken();
+  
+  if (!token || ApiService.isTokenExpired(token)) {
+    console.error('No valid authentication token found');
+    alert('Your session has expired. Please log in again.');
+    navigate('/login');
+    return false;
+  }
+  
+  try {
+    if (callback) {
+      await callback();
+    }
+    return true;
+  } catch (error) {
+    if (error.message.includes('401') || error.message.includes('unauthorized')) {
+      console.error('Authentication failed:', error);
+      alert('Your session has expired. Please log in again.');
+      navigate('/login');
+      return false;
+    }
+    throw error; // Re-throw non-auth errors
+  }
+};
+
+// Update your initializeResume function
+const initializeResume = async () => {
+  const success = await checkAuthAndProceed(async () => {
     try {
       setIsLoading(true);
       
@@ -99,10 +128,16 @@ const ResumeBuilder = () => {
       }
     } catch (error) {
       console.error('Error initializing resume:', error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, navigate);
+  
+  if (!success) {
+    console.log('Failed to initialize resume due to authentication issues');
+  }
+};
 
   // Get current user ID - you'll need to implement this based on your auth system
   const getCurrentUserId = async () => {
@@ -146,18 +181,19 @@ const ResumeBuilder = () => {
     }
   }, [activeSection, resumeVersionId, initializationComplete]);
 
-  const fetchSectionData = async (sectionName) => {
-    // Wait for initialization to complete
-    if (!resumeVersionId || !userId) {
-      console.log('Waiting for initialization...');
-      return;
-    }
+const fetchSectionData = async (sectionName) => {
+  // Wait for initialization to complete
+  if (!resumeVersionId || !userId) {
+    console.log('Waiting for initialization...');
+    return;
+  }
 
-    // Skip if we already have data for this section
-    if (sectionData[sectionName] && Object.keys(sectionData[sectionName]).length > 0) {
-      return;
-    }
+  // Skip if we already have data for this section
+  if (sectionData[sectionName] && Object.keys(sectionData[sectionName]).length > 0) {
+    return;
+  }
 
+  const success = await checkAuthAndProceed(async () => {
     try {
       setIsLoading(true);
       
@@ -191,13 +227,20 @@ const ResumeBuilder = () => {
       }
     } catch (error) {
       console.error(`Error fetching ${sectionName} data:`, error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, navigate);
+  
+  if (!success) {
+    console.log(`Failed to fetch ${sectionName} data due to authentication issues`);
+  }
+};
 
-  // Handle section save function
-  const handleSectionSave = async (sectionName, data) => {
+// Update your handleSectionSave function
+const handleSectionSave = async (sectionName, data) => {
+  const success = await checkAuthAndProceed(async () => {
     try {
       setIsLoading(true);
       
@@ -267,10 +310,16 @@ const ResumeBuilder = () => {
     } catch (error) {
       console.error(`Error saving ${sectionName} section:`, error);
       alert(`Error saving ${sectionName}. Please check your connection and try again.`);
+      throw error;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, navigate);
+  
+  if (!success) {
+    console.log(`Failed to save ${sectionName} section due to authentication issues`);
+  }
+};
 
   const handleOverallSave = async () => {
     try {

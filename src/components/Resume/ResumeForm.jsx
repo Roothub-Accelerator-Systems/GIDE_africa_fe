@@ -2,6 +2,7 @@ import { useState } from "react";
 import SectionEditor from "./SectionEditor";
 import Button from "../Shared/Button";
 import { Upload, Sparkles, FileText } from "lucide-react";
+import ApiService from "../Auth/ApiService";
 
 const ResumeForm = ({ 
   updatePreview, 
@@ -133,10 +134,18 @@ const ResumeForm = ({
     activeTemplate: "modern",
   });
 
-  const handleSaveAndPreview = async () => {
+ const handleSaveAndPreview = async () => {
     const activeSectionData = resumeData.sections.find(section => section.id === activeSection);
     
     if (activeSectionData && onSectionSave) {
+      // Check if we have a valid token before making the request
+      const token = ApiService.getAccessToken();
+      if (!token || ApiService.isTokenExpired(token)) {
+        console.error('No valid authentication token found');
+        alert('Your session has expired. Please log in again.');
+        return;
+      }
+
       // Extract just the data fields (not the field definitions)
       const sectionDataToSave = {};
       
@@ -156,7 +165,6 @@ const ResumeForm = ({
       let transformedData = sectionDataToSave;
       
       if (activeSection === 'personal') {
-        
         transformedData = {
           resume_version_id: resumeVersionId || "1", 
           user_id: userId, 
@@ -168,7 +176,6 @@ const ResumeForm = ({
           portfolio_url: sectionDataToSave.portfolio || ""
         };
       } else {
-        
         transformedData = {
           ...transformedData,
           resume_version_id: resumeVersionId || "1",
@@ -176,9 +183,21 @@ const ResumeForm = ({
         };
       }
       
-      await onSectionSave(activeSection, transformedData);
+      try {
+        await onSectionSave(activeSection, transformedData);
+      } catch (error) {
+        console.error('Error saving section:', error);
+        if (error.message.includes('401') || error.message.includes('unauthorized')) {
+          alert('Your session has expired. Please log in again.');
+          // Optionally redirect to login
+          // window.location.href = '/login';
+        } else {
+          alert('Failed to save section. Please try again.');
+        }
+      }
     }
   };
+
 
   // Function to handle section data updates
   const updateSection = (sectionId, updatedSectionData) => {
