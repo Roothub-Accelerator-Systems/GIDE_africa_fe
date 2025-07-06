@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Add this import
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, 
@@ -35,6 +36,8 @@ import ShareModal from '../components/Shared/ShareModal';
 import ApiService from '../components/Auth/ApiService';
 
 const ResumeBuilder = () => {
+  const navigate = useNavigate(); // Add this line
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('personal');
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
@@ -67,77 +70,76 @@ const ResumeBuilder = () => {
     initializeResume();
   }, []);
 
-  // Initialize resume by creating a new resume version
-// Add this authentication check utility at the top of your ResumeBuilder component
-const checkAuthAndProceed = async (callback, navigate) => {
-  const token = ApiService.getAccessToken();
-  
-  if (!token || ApiService.isTokenExpired(token)) {
-    console.error('No valid authentication token found');
-    alert('Your session has expired. Please log in again.');
-    navigate('/login');
-    return false;
-  }
-  
-  try {
-    if (callback) {
-      await callback();
-    }
-    return true;
-  } catch (error) {
-    if (error.message.includes('401') || error.message.includes('unauthorized')) {
-      console.error('Authentication failed:', error);
+  // Add this authentication check utility
+  const checkAuthAndProceed = async (callback) => {
+    const token = ApiService.getAccessToken();
+    
+    if (!token || ApiService.isTokenExpired(token)) {
+      console.error('No valid authentication token found');
       alert('Your session has expired. Please log in again.');
       navigate('/login');
       return false;
     }
-    throw error; // Re-throw non-auth errors
-  }
-};
-
-// Update your initializeResume function
-const initializeResume = async () => {
-  const success = await checkAuthAndProceed(async () => {
+    
     try {
-      setIsLoading(true);
-      
-      // First, get the user ID from authentication or storage
-      const currentUserId = await getCurrentUserId();
-      if (!currentUserId) {
-        console.error('No user ID found');
-        return;
+      if (callback) {
+        await callback();
       }
-      
-      setUserId(currentUserId);
-      
-      // Create a new resume version
-      const resumeData = {
-        title: `Resume - ${new Date().toLocaleDateString()}`,
-        user_id: currentUserId
-      };
-      
-      const response = await ApiService.resumebuilder('/resume/create-resume', 'POST', resumeData);
-      
-      if (response.success && response.data) {
-        const newResumeVersionId = response.data.resume_version_id || response.data.id;
-        setResumeVersionId(newResumeVersionId);
-        setInitializationComplete(true);
-        console.log('Resume initialized with ID:', newResumeVersionId);
-      } else {
-        console.error('Failed to create resume:', response.error);
-      }
+      return true;
     } catch (error) {
-      console.error('Error initializing resume:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
+      if (error.message.includes('401') || error.message.includes('unauthorized')) {
+        console.error('Authentication failed:', error);
+        alert('Your session has expired. Please log in again.');
+        navigate('/login');
+        return false;
+      }
+      throw error; // Re-throw non-auth errors
     }
-  }, navigate);
-  
-  if (!success) {
-    console.log('Failed to initialize resume due to authentication issues');
-  }
-};
+  };
+
+  // Update your initializeResume function
+  const initializeResume = async () => {
+    const success = await checkAuthAndProceed(async () => {
+      try {
+        setIsLoading(true);
+        
+        // First, get the user ID from authentication or storage
+        const currentUserId = await getCurrentUserId();
+        if (!currentUserId) {
+          console.error('No user ID found');
+          return;
+        }
+        
+        setUserId(currentUserId);
+        
+        // Create a new resume version
+        const resumeData = {
+          title: `Resume - ${new Date().toLocaleDateString()}`,
+          user_id: currentUserId
+        };
+        
+        const response = await ApiService.resumebuilder('/resume/create-resume', 'POST', resumeData);
+        
+        if (response.success && response.data) {
+          const newResumeVersionId = response.data.resume_version_id || response.data.id;
+          setResumeVersionId(newResumeVersionId);
+          setInitializationComplete(true);
+          console.log('Resume initialized with ID:', newResumeVersionId);
+        } else {
+          console.error('Failed to create resume:', response.error);
+        }
+      } catch (error) {
+        console.error('Error initializing resume:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    });
+    
+    if (!success) {
+      console.log('Failed to initialize resume due to authentication issues');
+    }
+  };
 
   // Get current user ID - you'll need to implement this based on your auth system
   const getCurrentUserId = async () => {
@@ -181,145 +183,148 @@ const initializeResume = async () => {
     }
   }, [activeSection, resumeVersionId, initializationComplete]);
 
-const fetchSectionData = async (sectionName) => {
-  // Wait for initialization to complete
-  if (!resumeVersionId || !userId) {
-    console.log('Waiting for initialization...');
-    return;
-  }
-
-  // Skip if we already have data for this section
-  if (sectionData[sectionName] && Object.keys(sectionData[sectionName]).length > 0) {
-    return;
-  }
-
-  const success = await checkAuthAndProceed(async () => {
-    try {
-      setIsLoading(true);
-      
-      // Map section names to API endpoints
-      const endpointMap = {
-        'personal': 'personal-info',
-        'skills': 'skills',
-        'experience': 'experience', 
-        'education': 'education',
-        'summary': 'summary'
-      };
-
-      const endpoint = endpointMap[sectionName];
-      if (!endpoint) return;
-
-      // Use POST request with appropriate payload to fetch existing data
-      const response = await ApiService.resumebuilder(`/resume/${endpoint}`, 'POST', {
-        resume_version_id: resumeVersionId,
-        user_id: userId,
-        action: "fetch"
-      });
-      
-      if (response.success && response.data) {
-        setSectionData(prev => ({
-          ...prev,
-          [sectionName]: response.data
-        }));
-        setSavedSections(prev => new Set(prev).add(sectionName));
-      } else {
-        console.log(`No existing data for ${sectionName}:`, response.error || 'No data available');
-      }
-    } catch (error) {
-      console.error(`Error fetching ${sectionName} data:`, error);
-      throw error;
-    } finally {
-      setIsLoading(false);
+  const fetchSectionData = async (sectionName) => {
+    // Wait for initialization to complete
+    if (!resumeVersionId || !userId) {
+      console.log('Waiting for initialization...');
+      return;
     }
-  }, navigate);
-  
-  if (!success) {
-    console.log(`Failed to fetch ${sectionName} data due to authentication issues`);
-  }
-};
 
-// Update your handleSectionSave function
-const handleSectionSave = async (sectionName, data) => {
-  const success = await checkAuthAndProceed(async () => {
-    try {
-      setIsLoading(true);
-      
-      // Map section names to API endpoints
-      const endpointMap = {
-        'personal': 'personal-info',
-        'skills': 'skills',
-        'experience': 'experience', 
-        'education': 'education',
-        'summary': 'summary'
-      };
-      
-      // Transform data based on section type
-      let transformedData = data;
-      
-      if (sectionName === 'personal') {
-        // Data is already transformed in ResumeForm
-        transformedData = data;
-      } else if (sectionName === 'skills') {
-        transformedData = {
-          resume_version_id: resumeVersionId,
-          user_id: userId,
-          skills: data.skills || ""
-        };
-      } else if (sectionName === 'experience') {
-        transformedData = {
-          resume_version_id: resumeVersionId,
-          user_id: userId,
-          experiences: data.items || []
-        };
-      } else if (sectionName === 'education') {
-        transformedData = {
-          resume_version_id: resumeVersionId,
-          user_id: userId,
-          educations: data.items || []
-        };
-      } else if (sectionName === 'summary') {
-        transformedData = {
-          resume_version_id: resumeVersionId,
-          user_id: userId,
-          summary: data.summary || ""
-        };
-      }
-      
-      const endpoint = `/resume/${endpointMap[sectionName]}`;
-      console.log('Sending data to API:', transformedData);
-      
-      const response = await ApiService.resumebuilder(endpoint, 'POST', transformedData);
-      
-      if (response.success) {
-        setSectionData(prev => ({
-          ...prev,
-          [sectionName]: data
-        }));
-        setSavedSections(prev => new Set(prev).add(sectionName));
+    // Skip if we already have data for this section
+    if (sectionData[sectionName] && Object.keys(sectionData[sectionName]).length > 0) {
+      return;
+    }
+
+    const success = await checkAuthAndProceed(async () => {
+      try {
+        setIsLoading(true);
         
-        handleUpdatePreview({
-          ...sectionData,
-          [sectionName]: data
+        // Map section names to API endpoints
+        const endpointMap = {
+          'personal': 'personal-info',
+          'skills': 'skills',
+          'experience': 'experience', 
+          'education': 'education',
+          'summary': 'summary'
+        };
+
+        const endpoint = endpointMap[sectionName];
+        if (!endpoint) return;
+
+        // Use POST request with appropriate payload to fetch existing data
+        const response = await ApiService.resumebuilder(`/resume/${endpoint}`, 'POST', {
+          resume_version_id: resumeVersionId,
+          user_id: userId,
+          action: "fetch"
         });
         
-        console.log(`${sectionName} section saved successfully`);
-      } else {
-        console.error(`Failed to save ${sectionName}:`, response.error);
-        alert(`Failed to save ${sectionName}. Please try again.`);
+        if (response.success && response.data) {
+          setSectionData(prev => ({
+            ...prev,
+            [sectionName]: response.data
+          }));
+          setSavedSections(prev => new Set(prev).add(sectionName));
+        } else {
+          console.log(`No existing data for ${sectionName}:`, response.error || 'No data available');
+        }
+      } catch (error) {
+        console.error(`Error fetching ${sectionName} data:`, error);
+        throw error;
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error(`Error saving ${sectionName} section:`, error);
-      alert(`Error saving ${sectionName}. Please check your connection and try again.`);
-      throw error;
-    } finally {
-      setIsLoading(false);
+    });
+    
+    if (!success) {
+      console.log(`Failed to fetch ${sectionName} data due to authentication issues`);
     }
-  }, navigate);
-  
-  if (!success) {
-    console.log(`Failed to save ${sectionName} section due to authentication issues`);
-  }
-};
+  };
+
+  // Update your handleSectionSave function
+  const handleSectionSave = async (sectionName, data) => {
+    const success = await checkAuthAndProceed(async () => {
+      try {
+        setIsLoading(true);
+        
+        // Map section names to API endpoints
+        const endpointMap = {
+          'personal': 'personal-info',
+          'skills': 'skills',
+          'experience': 'experience', 
+          'education': 'education',
+          'summary': 'summary'
+        };
+        
+        // Transform data based on section type
+        let transformedData = data;
+        
+        if (sectionName === 'personal') {
+          // Data is already transformed in ResumeForm
+          transformedData = data;
+        } else if (sectionName === 'skills') {
+          transformedData = {
+            resume_version_id: resumeVersionId,
+            user_id: userId,
+            skills: data.skills || ""
+          };
+        } else if (sectionName === 'experience') {
+          transformedData = {
+            resume_version_id: resumeVersionId,
+            user_id: userId,
+            experiences: data.items || []
+          };
+        } else if (sectionName === 'education') {
+          transformedData = {
+            resume_version_id: resumeVersionId,
+            user_id: userId,
+            educations: data.items || []
+          };
+        } else if (sectionName === 'summary') {
+          transformedData = {
+            resume_version_id: resumeVersionId,
+            user_id: userId,
+            summary: data.summary || ""
+          };
+        }
+        
+        const endpoint = `/resume/${endpointMap[sectionName]}`;
+        console.log('Sending data to API:', transformedData);
+        
+        const response = await ApiService.resumebuilder(endpoint, 'POST', transformedData);
+        
+        if (response.success) {
+          setSectionData(prev => ({
+            ...prev,
+            [sectionName]: data
+          }));
+          setSavedSections(prev => new Set(prev).add(sectionName));
+          
+          // Update preview if handleUpdatePreview function exists
+          if (typeof handleUpdatePreview === 'function') {
+            handleUpdatePreview({
+              ...sectionData,
+              [sectionName]: data
+            });
+          }
+          
+          console.log(`${sectionName} section saved successfully`);
+        } else {
+          console.error(`Failed to save ${sectionName}:`, response.error);
+          alert(`Failed to save ${sectionName}. Please try again.`);
+        }
+      } catch (error) {
+        console.error(`Error saving ${sectionName} section:`, error);
+        alert(`Error saving ${sectionName}. Please check your connection and try again.`);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    });
+    
+    if (!success) {
+      console.log(`Failed to save ${sectionName} section due to authentication issues`);
+    }
+  };
 
   const handleOverallSave = async () => {
     try {
