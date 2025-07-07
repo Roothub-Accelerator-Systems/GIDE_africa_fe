@@ -82,7 +82,11 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
   }, [onUserIdFetched, navigate]);
 
   // Create resume version when user navigates to resume builder
- const createResumeVersion = async () => {
+// Alternative version if your backend expects user_id as query param
+const createResumeVersion = async () => {
+  console.log('=== CREATE RESUME VERSION ===');
+  console.log('User ID:', userId);
+  
   if (!userId) {
     console.error('User ID not available');
     return null;
@@ -90,23 +94,36 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
 
   return await checkAuthAndProceed(async () => {
     try {
-      // Use the same endpoint format as your main component
-      const response = await ApiService.resumebuilder('/resume/create-resume', 'POST', {
-        user_id: userId,
+      console.log('Making request to create resume version...');
+      
+      // If your backend expects user_id as query param and title in body
+      const endpoint = `/resume/create-resume?user_id=${userId}`;
+      const response = await ApiService.resumebuilder(endpoint, 'POST', {
         title: "professional"
       });
       
-      // Handle the response structure from resumebuilder
-      if (response.success) {
-        const versionId = response.data.resume_version_id || response.data.id;
-        setResumeVersionId(versionId);
+      console.log('Response from resumebuilder:', response);
+      
+      if (response.success && response.data) {
+        const versionId = response.data.resume_version_id;
+        const resumeId = response.data.resume_id;
         
-        if (onResumeVersionCreated) {
-          onResumeVersionCreated(versionId);
+        console.log('Resume ID:', resumeId);
+        console.log('Resume Version ID:', versionId);
+        
+        if (versionId) {
+          setResumeVersionId(versionId);
+          
+          if (onResumeVersionCreated) {
+            onResumeVersionCreated(versionId);
+          }
+          
+          console.log('Resume version created successfully:', versionId);
+          return versionId;
+        } else {
+          console.error('No resume_version_id found in response');
+          return null;
         }
-        
-        console.log('Resume version created successfully:', versionId);
-        return versionId;
       } else {
         console.error('Failed to create resume version:', response.error);
         return null;
