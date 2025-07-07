@@ -82,37 +82,41 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
   }, [onUserIdFetched, navigate]);
 
   // Create resume version when user navigates to resume builder
-  const createResumeVersion = async () => {
-    if (!userId) {
-      console.error('User ID not available');
-      return null;
-    }
+ const createResumeVersion = async () => {
+  if (!userId) {
+    console.error('User ID not available');
+    return null;
+  }
 
-    return await checkAuthAndProceed(async () => {
-      try {
-        const response = await ApiService.makeRequest(`/resume/create-resume?user_id=${userId}`, {
-          method: 'POST',
-          body: JSON.stringify({
-            title: "professional"
-          })
-        });
-        
-        const versionId = response.resume_version_id || response.id;
+  return await checkAuthAndProceed(async () => {
+    try {
+      // Use the same endpoint format as your main component
+      const response = await ApiService.resumebuilder('/resume/create-resume', 'POST', {
+        user_id: userId,
+        title: "professional"
+      });
+      
+      // Handle the response structure from resumebuilder
+      if (response.success) {
+        const versionId = response.data.resume_version_id || response.data.id;
         setResumeVersionId(versionId);
         
-        // Pass resume version ID to parent component if callback provided
         if (onResumeVersionCreated) {
           onResumeVersionCreated(versionId);
         }
         
         console.log('Resume version created successfully:', versionId);
         return versionId;
-      } catch (error) {
-        console.error('Error creating resume version:', error);
-        throw error;
+      } else {
+        console.error('Failed to create resume version:', response.error);
+        return null;
       }
-    });
-  };
+    } catch (error) {
+      console.error('Error creating resume version:', error);
+      throw error;
+    }
+  });
+};
 
   // Handle navigation based on device size
   const handleNavigation = async (path) => {
