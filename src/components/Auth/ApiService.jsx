@@ -984,14 +984,9 @@ async checkEmailVerificationStatus(email) {
 
 async resumebuilder(endpoint, method = 'GET', data = null) {
   try {
-    const token = this.getAccessToken(); // Get the token
-    
     const options = {
       method: method.toUpperCase(),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // ADD THIS LINE
-      }
+      // Don't manually add headers - let makeRequest handle authentication
     };
     
     // Add data to request body for POST, PUT, PATCH methods
