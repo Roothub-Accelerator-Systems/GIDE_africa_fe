@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Add this import
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, 
@@ -36,7 +36,7 @@ import ShareModal from '../components/Shared/ShareModal';
 import ApiService from '../components/Auth/ApiService';
 
 const ResumeBuilder = () => {
-  const navigate = useNavigate(); // Add this line
+  const navigate = useNavigate();
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('personal');
@@ -65,10 +65,10 @@ const ResumeBuilder = () => {
   });
   const [savedSections, setSavedSections] = useState(new Set());
 
-  // Initialize resume on component mount
-  useEffect(() => {
-    initializeResume();
-  }, []);
+  // **REMOVE the automatic initialization on mount**
+  // useEffect(() => {
+  //   initializeResume();
+  // }, []);
 
   // Add this authentication check utility
   const checkAuthAndProceed = async (callback) => {
@@ -97,83 +97,23 @@ const ResumeBuilder = () => {
     }
   };
 
-  // Update your initializeResume function
-  const initializeResume = async () => {
-    const success = await checkAuthAndProceed(async () => {
-      try {
-        setIsLoading(true);
-        
-        // First, get the user ID from authentication or storage
-        const currentUserId = await getCurrentUserId();
-        if (!currentUserId) {
-          console.error('No user ID found');
-          return;
-        }
-        
-        setUserId(currentUserId);
-        
-        // Create a new resume version
-        const resumeData = {
-          title: `Resume - ${new Date().toLocaleDateString()}`,
-          user_id: currentUserId
-        };
-        
-        const response = await ApiService.resumebuilder('/resume/create-resume', 'POST', resumeData);
-        
-        if (response.success && response.data) {
-          const newResumeVersionId = response.data.resume_version_id || response.data.id;
-          setResumeVersionId(newResumeVersionId);
-          setInitializationComplete(true);
-          console.log('Resume initialized with ID:', newResumeVersionId);
-        } else {
-          console.error('Failed to create resume:', response.error);
-        }
-      } catch (error) {
-        console.error('Error initializing resume:', error);
-        throw error;
-      } finally {
-        setIsLoading(false);
-      }
-    });
-    
-    if (!success) {
-      console.log('Failed to initialize resume due to authentication issues');
+  // **SIMPLIFIED**: Just mark as initialized when we have both user ID and resume version ID
+  useEffect(() => {
+    if (userId && resumeVersionId && !initializationComplete) {
+      console.log('ResumeBuilder - Initialization complete with:', { userId, resumeVersionId });
+      setInitializationComplete(true);
     }
-  };
-
-  // Get current user ID - you'll need to implement this based on your auth system
-  const getCurrentUserId = async () => {
-    try {
-      // This should get the user ID from your authentication system
-      // For example, from localStorage, context, or API call
-      const userData = localStorage.getItem('userData');
-      if (userData) {
-        const parsedData = JSON.parse(userData);
-        return parsedData.user_id || parsedData.id;
-      }
-      
-      // Alternative: Make API call to get current user
-      const userResponse = await ApiService.makeRequest('/auth/me', { method: 'GET' });
-      if (userResponse.success) {
-        return userResponse.data.user_id || userResponse.data.id;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Error getting user ID:', error);
-      return null;
-    }
-  };
+  }, [userId, resumeVersionId, initializationComplete]);
 
   // Callback functions for sidebar
   const handleUserIdFetched = (fetchedUserId) => {
+    console.log('ResumeBuilder - User ID received from sidebar:', fetchedUserId);
     setUserId(fetchedUserId);
-    console.log('User ID fetched:', fetchedUserId);
   };
 
   const handleResumeVersionCreated = (versionId) => {
+    console.log('ResumeBuilder - Resume version ID received from sidebar:', versionId);
     setResumeVersionId(versionId);
-    console.log('Resume version ID created:', versionId);
   };
 
   useEffect(() => {

@@ -7,7 +7,6 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
   const location = useLocation();
   const navigate = useNavigate();
   const [userId, setUserId] = useState(null);
-  const [resumeVersionId, setResumeVersionId] = useState(null);
 
   const navItems = [
     { name: "Dashboard", icon: <Home size={20} />, path: "/dashboard" },
@@ -67,6 +66,8 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
           if (onUserIdFetched) {
             onUserIdFetched(fetchedUserId);
           }
+          
+          console.log('Sidebar - User ID fetched:', fetchedUserId);
         } catch (error) {
           console.error('Error fetching current user:', error);
           throw error;
@@ -82,58 +83,57 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
   }, [onUserIdFetched, navigate]);
 
   // Create resume version when user navigates to resume builder
-// Alternative version if your backend expects user_id as query param
-const createResumeVersion = async () => {
-  console.log('=== CREATE RESUME VERSION ===');
-  console.log('User ID:', userId);
-  
-  if (!userId) {
-    console.error('User ID not available');
-    return null;
-  }
+  const createResumeVersion = async () => {
+    console.log('=== CREATE RESUME VERSION ===');
+    console.log('User ID:', userId);
+    
+    if (!userId) {
+      console.error('User ID not available');
+      return null;
+    }
 
-  return await checkAuthAndProceed(async () => {
-    try {
-      console.log('Making request to create resume version...');
-      
-      // If your backend expects user_id as query param and title in body
-      const endpoint = `/resume/create-resume?user_id=${userId}`;
-      const response = await ApiService.resumebuilder(endpoint, 'POST', {
-        title: "professional"
-      });
-      
-      console.log('Response from resumebuilder:', response);
-      
-      if (response.success && response.data) {
-        const versionId = response.data.resume_version_id;
-        const resumeId = response.data.resume_id;
+    return await checkAuthAndProceed(async () => {
+      try {
+        console.log('Making request to create resume version...');
         
-        console.log('Resume ID:', resumeId);
-        console.log('Resume Version ID:', versionId);
+        // If your backend expects user_id as query param and title in body
+        const endpoint = `/resume/create-resume?user_id=${userId}`;
+        const response = await ApiService.resumebuilder(endpoint, 'POST', {
+          title: "professional"
+        });
         
-        if (versionId) {
-          setResumeVersionId(versionId);
+        console.log('Response from resumebuilder:', response);
+        
+        if (response.success && response.data) {
+          const versionId = response.data.resume_version_id;
+          const resumeId = response.data.resume_id;
           
-          if (onResumeVersionCreated) {
-            onResumeVersionCreated(versionId);
+          console.log('Resume ID:', resumeId);
+          console.log('Resume Version ID:', versionId);
+          
+          if (versionId) {
+            // **IMPORTANT**: Call the callback to pass the version ID to ResumeBuilder
+            if (onResumeVersionCreated) {
+              console.log('Calling onResumeVersionCreated with version ID:', versionId);
+              onResumeVersionCreated(versionId);
+            }
+            
+            console.log('Resume version created successfully:', versionId);
+            return versionId;
+          } else {
+            console.error('No resume_version_id found in response');
+            return null;
           }
-          
-          console.log('Resume version created successfully:', versionId);
-          return versionId;
         } else {
-          console.error('No resume_version_id found in response');
+          console.error('Failed to create resume version:', response.error);
           return null;
         }
-      } else {
-        console.error('Failed to create resume version:', response.error);
-        return null;
+      } catch (error) {
+        console.error('Error creating resume version:', error);
+        throw error;
       }
-    } catch (error) {
-      console.error('Error creating resume version:', error);
-      throw error;
-    }
-  });
-};
+    });
+  };
 
   // Handle navigation based on device size
   const handleNavigation = async (path) => {
@@ -147,12 +147,15 @@ const createResumeVersion = async () => {
     }
 
     // If navigating to resume builder, create resume version first
-    if (path === "/resume-builder" && userId && !resumeVersionId) {
+    if (path === "/resume-builder" && userId) {
+      console.log('Navigating to resume builder, creating resume version...');
       const versionId = await createResumeVersion();
       if (!versionId) {
         console.error('Failed to create resume version');
+        alert('Failed to create resume. Please try again.');
         return;
       }
+      console.log('Resume version created, navigating to resume builder...');
     }
     
     navigate(path);
