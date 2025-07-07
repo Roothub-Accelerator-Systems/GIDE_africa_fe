@@ -984,11 +984,13 @@ async checkEmailVerificationStatus(email) {
 
 async resumebuilder(endpoint, method = 'GET', data = null) {
   try {
+    const token = this.getAccessToken(); // Get the token
+    
     const options = {
       method: method.toUpperCase(),
       headers: {
         'Content-Type': 'application/json',
-        // Add any other headers your API needs (like Authorization)
+        'Authorization': `Bearer ${token}` // ADD THIS LINE
       }
     };
     
@@ -1016,7 +1018,6 @@ async resumebuilder(endpoint, method = 'GET', data = null) {
   } catch (error) {
     console.error(`Resume API Error - ${method} ${endpoint}:`, error);
     
-    // Return a more structured error response
     return {
       data: null,
       success: false,
