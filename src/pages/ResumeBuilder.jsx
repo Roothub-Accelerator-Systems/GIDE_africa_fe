@@ -189,7 +189,7 @@ const ResumeBuilder = () => {
         // Map section names to API endpoints
         const endpointMap = {
           'personal': 'personal-info',
-          'skills': 'skills',
+          'skills': 'skill',
           'experience': 'experience', 
           'education': 'education',
           'summary': 'summary'
