@@ -10,7 +10,7 @@ const ResumeForm = ({
   onSectionSave, 
   existingData = {}, 
   resumeVersionId = null, // New prop to receive resume version ID from parent
-  userId = null // New prop to receive user ID from parent
+  // userId = null // New prop to receive user ID from parent
 }) => {
   // Initial resume data structure
   const [resumeData, setResumeData] = useState({
@@ -166,8 +166,8 @@ const ResumeForm = ({
       
       if (activeSection === 'personal') {
         transformedData = {
-          resume_version_id: resumeVersionId || "1", 
-          user_id: userId, 
+          resume_version_id: resumeVersionId , 
+          // user_id: userId, 
           full_name: sectionDataToSave.fullName || "",
           email: sectionDataToSave.email || "",
           phone_number: sectionDataToSave.phone || "",
@@ -178,8 +178,8 @@ const ResumeForm = ({
       } else {
         transformedData = {
           ...transformedData,
-          resume_version_id: resumeVersionId || "1",
-          user_id: userId
+          resume_version_id: resumeVersionId ,
+          // user_id: userId
         };
       }
       
