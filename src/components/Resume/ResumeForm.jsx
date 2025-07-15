@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SectionEditor from "./SectionEditor";
 import Button from "../Shared/Button";
 import { Upload, Sparkles, FileText } from "lucide-react";
@@ -9,8 +9,8 @@ const ResumeForm = ({
   activeSection, 
   onSectionSave, 
   existingData = {}, 
-  resumeVersionId = null, // New prop to receive resume version ID from parent
-  // userId = null // New prop to receive user ID from parent
+  resumeVersionId = null,
+  userId = null
 }) => {
   // Initial resume data structure
   const [resumeData, setResumeData] = useState({
@@ -26,7 +26,6 @@ const ResumeForm = ({
           { name: "linkedin", label: "LinkedIn URL", placeholder: "linkedin.com/in/johndoe" },
           { name: "portfolio", label: "Portfolio/Website", placeholder: "johndoe.com" },
         ],
-        // Pre-populate with existing data
         ...existingData.personal,
       },
       {
@@ -43,7 +42,6 @@ const ResumeForm = ({
             helpText: "Aim for 3-5 sentences that highlight your experience and strengths."
           },
         ],
-        // Pre-populate with existing data
         ...existingData.summary,
         aiSuggestion: true,
       },
@@ -126,7 +124,6 @@ const ResumeForm = ({
             helpText: "Example: JavaScript, React, Python, Project Management, Leadership"
           },
         ],
-        // Pre-populate with existing data
         ...existingData.skills,
         aiSuggestion: true,
       },
@@ -134,7 +131,34 @@ const ResumeForm = ({
     activeTemplate: "modern",
   });
 
- const handleSaveAndPreview = async () => {
+  // **FIXED**: Update resume data when existing data changes
+  useEffect(() => {
+    if (existingData && Object.keys(existingData).length > 0) {
+      setResumeData(prevData => ({
+        ...prevData,
+        sections: prevData.sections.map(section => ({
+          ...section,
+          ...existingData[section.id]
+        }))
+      }));
+    }
+  }, [existingData]);
+
+  // **FIXED**: Enhanced save function with better error handling
+  const handleSaveAndPreview = async () => {
+    // **CRITICAL**: Check if we have the required IDs
+    if (!resumeVersionId) {
+      console.error('Resume version ID is missing');
+      alert('Resume version ID is missing. Please refresh the page and try again.');
+      return;
+    }
+
+    if (!userId) {
+      console.error('User ID is missing');
+      alert('User ID is missing. Please refresh the page and try again.');
+      return;
+    }
+
     const activeSectionData = resumeData.sections.find(section => section.id === activeSection);
     
     if (activeSectionData && onSectionSave) {
@@ -166,8 +190,8 @@ const ResumeForm = ({
       
       if (activeSection === 'personal') {
         transformedData = {
-          resume_version_id: resumeVersionId || '1', 
-          // user_id: userId, 
+          resume_version_id: resumeVersionId,
+          user_id: userId,
           full_name: sectionDataToSave.fullName || "",
           email: sectionDataToSave.email || "",
           phone_number: sectionDataToSave.phone || "",
@@ -178,10 +202,18 @@ const ResumeForm = ({
       } else {
         transformedData = {
           ...transformedData,
-          resume_version_id: resumeVersionId ,
-          // user_id: userId
+          resume_version_id: resumeVersionId,
+          user_id: userId
         };
       }
+      
+      // **DEBUGGING**: Log the data being sent
+      console.log('=== SAVING SECTION DATA ===');
+      console.log('Active Section:', activeSection);
+      console.log('Resume Version ID:', resumeVersionId);
+      console.log('User ID:', userId);
+      console.log('Transformed Data:', transformedData);
+      console.log('============================');
       
       try {
         await onSectionSave(activeSection, transformedData);
@@ -189,15 +221,12 @@ const ResumeForm = ({
         console.error('Error saving section:', error);
         if (error.message.includes('401') || error.message.includes('unauthorized')) {
           alert('Your session has expired. Please log in again.');
-          // Optionally redirect to login
-          // window.location.href = '/login';
         } else {
           alert('Failed to save section. Please try again.');
         }
       }
     }
   };
-
 
   // Function to handle section data updates
   const updateSection = (sectionId, updatedSectionData) => {
@@ -256,6 +285,23 @@ const ResumeForm = ({
 
   const activeSectionData = resumeData.sections.find(section => section.id === activeSection);
 
+  // **FIXED**: Don't render if we don't have the required data
+  if (!resumeVersionId || !userId) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <p className="text-gray-600">Loading resume data...</p>
+          <p className="text-sm text-gray-500 mt-2">
+            Resume Version ID: {resumeVersionId || 'Not set'}
+          </p>
+          <p className="text-sm text-gray-500">
+            User ID: {userId || 'Not set'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col">
       {/* Show only the active section */}
@@ -274,9 +320,13 @@ const ResumeForm = ({
         </div>
       )}
 
-      {/* Save/Export Button - Can be conditionally shown as needed */}
+      {/* Save/Export Button */}
       <div className="mt-8 flex justify-center">
-        <Button onClick={handleSaveAndPreview} className="flex items-center px-6">
+        <Button 
+          onClick={handleSaveAndPreview} 
+          className="flex items-center px-6"
+          disabled={!resumeVersionId || !userId}
+        >
           <FileText size={18} className="mr-2" />
           Save & Preview Resume
         </Button>

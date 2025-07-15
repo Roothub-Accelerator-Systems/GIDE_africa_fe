@@ -65,11 +65,6 @@ const ResumeBuilder = () => {
   });
   const [savedSections, setSavedSections] = useState(new Set());
 
-  // **REMOVE the automatic initialization on mount**
-  // useEffect(() => {
-  //   initializeResume();
-  // }, []);
-
   // Add this authentication check utility
   const checkAuthAndProceed = async (callback) => {
     const token = ApiService.getAccessToken();
@@ -97,7 +92,7 @@ const ResumeBuilder = () => {
     }
   };
 
-  // **SIMPLIFIED**: Just mark as initialized when we have both user ID and resume version ID
+  // **FIXED**: Proper initialization handling
   useEffect(() => {
     if (userId && resumeVersionId && !initializationComplete) {
       console.log('ResumeBuilder - Initialization complete with:', { userId, resumeVersionId });
@@ -265,6 +260,8 @@ const ResumeBuilder = () => {
       console.log(`Failed to save ${sectionName} section due to authentication issues`);
     }
   };
+
+  
 
   const handleOverallSave = async () => {
     try {
