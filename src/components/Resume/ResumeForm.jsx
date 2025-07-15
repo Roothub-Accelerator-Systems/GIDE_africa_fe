@@ -292,10 +292,11 @@ const ResumeForm = ({
         <div className="text-center">
           <p className="text-gray-600">Loading resume data...</p>
           <p className="text-sm text-gray-500 mt-2">
-            Resume Version ID: {resumeVersionId || 'Not set'}
+            {/* Resume Version ID: {resumeVersionId || 'Not set'} */}
           </p>
           <p className="text-sm text-gray-500">
-            User ID: {userId || 'Not set'}
+            {/* User ID: {userId || 'Not set'} */}
+            Click the create button to start building your resume.
           </p>
         </div>
       </div>
