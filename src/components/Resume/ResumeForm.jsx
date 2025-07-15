@@ -166,7 +166,7 @@ const ResumeForm = ({
       
       if (activeSection === 'personal') {
         transformedData = {
-          resume_version_id: resumeVersionId , 
+          resume_version_id: resumeVersionId || '1', 
           // user_id: userId, 
           full_name: sectionDataToSave.fullName || "",
           email: sectionDataToSave.email || "",
