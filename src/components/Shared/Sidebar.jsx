@@ -161,9 +161,9 @@ const Sidebar = ({ isOpen, toggleSidebar, onUserIdFetched, onResumeVersionCreate
     navigate(path);
     
     // Only close the sidebar on mobile screens
-    if (window.innerWidth < 768) {
-      toggleSidebar();
-    }
+    // if (window.innerWidth < 768) {
+    //  ();
+    // }
   };
 
   return (
