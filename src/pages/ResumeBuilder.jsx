@@ -138,7 +138,7 @@ const ResumeBuilder = () => {
         const endpointMap = {
           'personal': 'personal-info',
           'skills': 'skills',
-          'experience': 'experience', 
+          'experience': 'work-experience', 
           'education': 'education',
           'summary': 'summary'
         };
