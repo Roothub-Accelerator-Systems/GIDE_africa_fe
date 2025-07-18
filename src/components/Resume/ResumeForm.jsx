@@ -12,7 +12,7 @@ const ResumeForm = ({
   resumeVersionId = null,
   userId = null
 }) => {
-  // Initial resume data structure
+  // **UPDATED**: Initial resume data structure to match API schema
   const [resumeData, setResumeData] = useState({
     sections: [
       {
@@ -46,86 +46,47 @@ const ResumeForm = ({
         aiSuggestion: true,
       },
       {
+        id: "skills",
+        title: "Skills",
+        fields: [
+          { name: "jobTitle", label: "Job Title", required: true, placeholder: "Software Engineer" },
+          { name: "companyName", label: "Company Name", required: true, placeholder: "Tech Corp" },
+          { name: "location", label: "Location", placeholder: "San Francisco, CA" },
+          { name: "startDate", label: "Start Date", type: "datetime-local", required: true },
+          { name: "endDate", label: "End Date", type: "datetime-local", required: true },
+          { name: "description", label: "Description", type: "textarea", rows: 3, placeholder: "Describe your role and responsibilities" },
+          { name: "skill", label: "Skill", required: true, placeholder: "JavaScript, React, Python, etc." },
+        ],
+        ...existingData.skills,
+        aiSuggestion: true,
+      },
+      {
         id: "experience",
         title: "Work Experience",
-        addable: true,
-        removable: true,
-        addButtonText: "Experience",
-        items: existingData.experience?.items || [
-          {
-            title: "Position Title",
-            company: "Company Name",
-            location: "City, State",
-            startDate: "",
-            endDate: "",
-            current: false,
-            description: "",
-          }
-        ],
-        itemFields: [
-          { name: "title", label: "Position Title", required: true, placeholder: "Software Engineer" },
-          { name: "company", label: "Company Name", required: true, placeholder: "Acme Inc." },
+        fields: [
+          { name: "jobTitle", label: "Job Title", required: true, placeholder: "Software Engineer" },
+          { name: "companyName", label: "Company Name", required: true, placeholder: "Tech Corp" },
           { name: "location", label: "Location", placeholder: "San Francisco, CA" },
-          { name: "startDate", label: "Start Date", type: "month", required: true },
-          { name: "endDate", label: "End Date", type: "month" },
-          { name: "current", label: "I currently work here", type: "checkbox" },
-          { 
-            name: "description", 
-            label: "Description", 
-            type: "textarea", 
-            rows: 5, 
-            required: true,
-            placeholder: "Describe your responsibilities and achievements in this role."
-          },
+          { name: "startDate", label: "Start Date", type: "datetime-local", required: true },
+          { name: "endDate", label: "End Date", type: "datetime-local", required: true },
+          { name: "description", label: "Description", type: "textarea", rows: 5, required: true, placeholder: "Describe your responsibilities and achievements" },
+          { name: "skill", label: "Skills Used", placeholder: "Technologies and skills used in this role" },
         ],
+        ...existingData.experience,
         aiSuggestion: true,
       },
       {
         id: "education",
         title: "Education",
-        addable: true,
-        removable: true,
-        addButtonText: "Education",
-        items: existingData.education?.items || [
-          {
-            degree: "Degree Name",
-            institution: "Institution Name",
-            location: "City, State",
-            startDate: "",
-            endDate: "",
-            current: false,
-            description: "",
-          }
-        ],
-        itemFields: [
-          { name: "degree", label: "Degree/Certificate", required: true, placeholder: "Bachelor of Science in Computer Science" },
-          { name: "institution", label: "Institution", required: true, placeholder: "University Name" },
-          { name: "location", label: "Location", placeholder: "City, State" },
-          { name: "startDate", label: "Start Date", type: "month" },
-          { name: "endDate", label: "End Date", type: "month" },
-          { name: "current", label: "I'm currently studying here", type: "checkbox" },
-          { 
-            name: "description", 
-            label: "Additional Information", 
-            type: "textarea", 
-            placeholder: "Relevant coursework, achievements, GPA, etc."
-          },
-        ],
-      },
-      {
-        id: "skills",
-        title: "Skills",
         fields: [
-          { 
-            name: "skills", 
-            label: "Skills", 
-            type: "textarea", 
-            placeholder: "List your skills, separated by commas",
-            helpText: "Example: JavaScript, React, Python, Project Management, Leadership"
-          },
+          { name: "degree", label: "Degree/Certificate", required: true, placeholder: "Bachelor of Science in Computer Science" },
+          { name: "institutionName", label: "Institution Name", required: true, placeholder: "University Name" },
+          { name: "location", label: "Location", placeholder: "City, State" },
+          { name: "startDate", label: "Start Date", type: "datetime-local", required: true },
+          { name: "endDate", label: "End Date", type: "datetime-local", required: true },
+          { name: "additionalInfo", label: "Additional Information", type: "textarea", placeholder: "Relevant coursework, achievements, GPA, etc." },
         ],
-        ...existingData.skills,
-        aiSuggestion: true,
+        ...existingData.education,
       },
     ],
     activeTemplate: "modern",
@@ -144,7 +105,7 @@ const ResumeForm = ({
     }
   }, [existingData]);
 
-  // **FIXED**: Enhanced save function with better error handling
+  // **FIXED**: Enhanced save function with proper data transformation
   const handleSaveAndPreview = async () => {
     // **CRITICAL**: Check if we have the required IDs
     if (!resumeVersionId) {
@@ -170,23 +131,18 @@ const ResumeForm = ({
         return;
       }
 
-      // Extract just the data fields (not the field definitions)
+      // Extract data fields based on section type
       const sectionDataToSave = {};
       
       if (activeSectionData.fields) {
-        // For simple field sections
+        // For field-based sections, extract field values
         activeSectionData.fields.forEach(field => {
           sectionDataToSave[field.name] = activeSectionData[field.name] || "";
         });
       }
       
-      if (activeSectionData.items) {
-        // For array-based sections
-        sectionDataToSave.items = activeSectionData.items;
-      }
-      
-      // Transform data based on section type
-      let transformedData = sectionDataToSave;
+      // Transform data based on section type to match API schema
+      let transformedData = {};
       
       if (activeSection === 'personal') {
         transformedData = {
@@ -199,11 +155,42 @@ const ResumeForm = ({
           linkedin_url: sectionDataToSave.linkedin || "",
           portfolio_url: sectionDataToSave.portfolio || ""
         };
-      } else {
+      } else if (activeSection === 'skills') {
+        // Skills now uses the same format as work experience
         transformedData = {
-          ...transformedData,
-          resume_version_id: resumeVersionId,
-          user_id: userId
+          jobTitle: sectionDataToSave.jobTitle || "",
+          companyName: sectionDataToSave.companyName || "",
+          location: sectionDataToSave.location || "",
+          startDate: sectionDataToSave.startDate || "",
+          endDate: sectionDataToSave.endDate || "",
+          description: sectionDataToSave.description || "",
+          skill: sectionDataToSave.skill || ""
+        };
+      } else if (activeSection === 'experience') {
+        // Work experience format
+        transformedData = {
+          jobTitle: sectionDataToSave.jobTitle || "",
+          companyName: sectionDataToSave.companyName || "",
+          location: sectionDataToSave.location || "",
+          startDate: sectionDataToSave.startDate || "",
+          endDate: sectionDataToSave.endDate || "",
+          description: sectionDataToSave.description || "",
+          skill: sectionDataToSave.skill || ""
+        };
+      } else if (activeSection === 'education') {
+        // Education format
+        transformedData = {
+          degree: sectionDataToSave.degree || "",
+          institutionName: sectionDataToSave.institutionName || "",
+          location: sectionDataToSave.location || "",
+          startDate: sectionDataToSave.startDate || "",
+          endDate: sectionDataToSave.endDate || "",
+          additionalInfo: sectionDataToSave.additionalInfo || ""
+        };
+      } else if (activeSection === 'summary') {
+        // Summary section (no JSON body required)
+        transformedData = {
+          summary: sectionDataToSave.summary || ""
         };
       }
       
@@ -212,6 +199,7 @@ const ResumeForm = ({
       console.log('Active Section:', activeSection);
       console.log('Resume Version ID:', resumeVersionId);
       console.log('User ID:', userId);
+      console.log('Section Data:', sectionDataToSave);
       console.log('Transformed Data:', transformedData);
       console.log('============================');
       
@@ -250,38 +238,8 @@ const ResumeForm = ({
     updateSection(updatedSection.id, updatedSection);
   };
 
-  // Handler for adding an item to a section array (e.g., new work experience)
-  const handleAddItem = (sectionId) => {
-    const section = resumeData.sections.find(s => s.id === sectionId);
-    if (!section || !section.items) return;
-
-    // Create a new empty item based on the first item structure
-    const newItem = {};
-    section.itemFields.forEach(field => {
-      newItem[field.name] = "";
-    });
-
-    // Add default title for display
-    if (sectionId === "experience") {
-      newItem.title = "Position Title";
-      newItem.company = "Company Name";
-    } else if (sectionId === "education") {
-      newItem.degree = "Degree Name";
-      newItem.institution = "Institution Name";
-    }
-
-    const updatedItems = [...section.items, newItem];
-    updateSection(sectionId, { items: updatedItems });
-  };
-
-  // Handler for removing an item from a section array
-  const handleRemoveItem = (sectionId, itemIndex) => {
-    const section = resumeData.sections.find(s => s.id === sectionId);
-    if (!section || !section.items) return;
-
-    const updatedItems = section.items.filter((_, index) => index !== itemIndex);
-    updateSection(sectionId, { items: updatedItems });
-  };
+  // **REMOVED**: Add/Remove item handlers since we're using single forms now
+  // Skills, Experience, and Education are now single form sections like Personal
 
   const activeSectionData = resumeData.sections.find(section => section.id === activeSection);
 
@@ -292,10 +250,6 @@ const ResumeForm = ({
         <div className="text-center">
           <p className="text-gray-600">Loading resume data...</p>
           <p className="text-sm text-gray-500 mt-2">
-            {/* Resume Version ID: {resumeVersionId || 'Not set'} */}
-          </p>
-          <p className="text-sm text-gray-500">
-            {/* User ID: {userId || 'Not set'} */}
             Click the create button to start building your resume.
           </p>
         </div>
@@ -312,10 +266,10 @@ const ResumeForm = ({
             key={activeSectionData.id}
             section={activeSectionData}
             updateSection={handleSectionUpdate}
-            addable={activeSectionData.addable}
-            removable={activeSectionData.removable}
-            onAdd={handleAddItem}
-            onRemove={handleRemoveItem}
+            addable={false} // Changed to false since we're using single forms
+            removable={false} // Changed to false since we're using single forms
+            onAdd={null}
+            onRemove={null}
             aiSuggestion={activeSectionData.aiSuggestion}
           />
         </div>

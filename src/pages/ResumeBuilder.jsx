@@ -175,7 +175,7 @@ const ResumeBuilder = () => {
     }
   };
 
-  // Update your handleSectionSave function
+  // **FIXED**: Update handleSectionSave to match your API schema
   const handleSectionSave = async (sectionName, data) => {
     const success = await checkAuthAndProceed(async () => {
       try {
@@ -190,42 +190,87 @@ const ResumeBuilder = () => {
           'summary': 'summary'
         };
         
-        // Transform data based on section type
-        let transformedData = data;
+        // Transform data based on section type to match API schema
+        let transformedData = {};
         
         if (sectionName === 'personal') {
-          // Data is already transformed in ResumeForm
+          // Personal info transformation (unchanged)
           transformedData = data;
         } else if (sectionName === 'skills') {
+          // Skills now expects the same format as work experience
           transformedData = {
             resume_version_id: resumeVersionId,
-            user_id: userId,
-            skills: data.skills || ""
+            job_title: data.jobTitle || "",
+            company_name: data.companyName || "",
+            location: data.location || "",
+            start_date: data.startDate || new Date().toISOString(),
+            end_date: data.endDate || new Date().toISOString(),
+            description: data.description || "",
+            skill: data.skill || ""
           };
         } else if (sectionName === 'experience') {
-          transformedData = {
-            resume_version_id: resumeVersionId,
-            user_id: userId,
-            experiences: data.items || []
-          };
+          // Work experience transformation
+          if (data.items && data.items.length > 0) {
+            // For now, send the first item (you may want to handle multiple items differently)
+            const firstItem = data.items[0];
+            transformedData = {
+              resume_version_id: resumeVersionId,
+              job_title: firstItem.title || "",
+              company_name: firstItem.company || "",
+              location: firstItem.location || "",
+              start_date: firstItem.startDate ? new Date(firstItem.startDate).toISOString() : new Date().toISOString(),
+              end_date: firstItem.endDate ? new Date(firstItem.endDate).toISOString() : new Date().toISOString(),
+              description: firstItem.description || "",
+              skill: firstItem.skill || ""
+            };
+          } else {
+            transformedData = {
+              resume_version_id: resumeVersionId,
+              job_title: "",
+              company_name: "",
+              location: "",
+              start_date: new Date().toISOString(),
+              end_date: new Date().toISOString(),
+              description: "",
+              skill: ""
+            };
+          }
         } else if (sectionName === 'education') {
-          transformedData = {
-            resume_version_id: resumeVersionId,
-            user_id: userId,
-            educations: data.items || []
-          };
+          // Education transformation
+          if (data.items && data.items.length > 0) {
+            const firstItem = data.items[0];
+            transformedData = {
+              resume_version_id: resumeVersionId,
+              degree: firstItem.degree || "",
+              institution_name: firstItem.institution || "",
+              location: firstItem.location || "",
+              start_date: firstItem.startDate ? new Date(firstItem.startDate).toISOString() : new Date().toISOString(),
+              end_date: firstItem.endDate ? new Date(firstItem.endDate).toISOString() : new Date().toISOString(),
+              additional_info: firstItem.description || ""
+            };
+          } else {
+            transformedData = {
+              resume_version_id: resumeVersionId,
+              degree: "",
+              institution_name: "",
+              location: "",
+              start_date: new Date().toISOString(),
+              end_date: new Date().toISOString(),
+              additional_info: ""
+            };
+          }
         } else if (sectionName === 'summary') {
-          transformedData = {
-            resume_version_id: resumeVersionId,
-            user_id: userId,
-            summary: data.summary || ""
-          };
+          // Summary requires no JSON body according to your note
+          transformedData = null;
         }
         
         const endpoint = `/resume/${endpointMap[sectionName]}`;
         console.log('Sending data to API:', transformedData);
         
-        const response = await ApiService.resumebuilder(endpoint, 'POST', transformedData);
+        // For summary, send POST without body
+        const response = sectionName === 'summary' 
+          ? await ApiService.resumebuilder(endpoint, 'POST')
+          : await ApiService.resumebuilder(endpoint, 'POST', transformedData);
         
         if (response.success) {
           setSectionData(prev => ({
