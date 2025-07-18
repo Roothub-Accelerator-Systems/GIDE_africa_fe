@@ -260,14 +260,21 @@ const ResumeBuilder = () => {
             };
           }
         } else if (sectionName === 'summary') {
-          // Summary requires no JSON body according to your note
+          // Summary requires no JSON body and resume_version_id as query parameter
           transformedData = null;
         }
         
-        const endpoint = `/resume/${endpointMap[sectionName]}`;
-        console.log('Sending data to API:', transformedData);
+        let endpoint = `/resume/${endpointMap[sectionName]}`;
         
-        // For summary, send POST without body
+        // For summary, add resume_version_id as query parameter
+        if (sectionName === 'summary') {
+          endpoint = `${endpoint}?resume_version_id=${resumeVersionId}`;
+        }
+        
+        console.log('Sending data to API:', transformedData);
+        console.log('Endpoint:', endpoint);
+        
+        // For summary, send POST without body but with query parameter
         const response = sectionName === 'summary' 
           ? await ApiService.resumebuilder(endpoint, 'POST')
           : await ApiService.resumebuilder(endpoint, 'POST', transformedData);
@@ -305,7 +312,6 @@ const ResumeBuilder = () => {
       console.log(`Failed to save ${sectionName} section due to authentication issues`);
     }
   };
-
   
 
   const handleOverallSave = async () => {
